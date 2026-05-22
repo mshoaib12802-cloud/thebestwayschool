@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#312e81"/>
+      <stop offset="100%" stop-color="#1e1b4b"/>
+    </linearGradient>
+  </defs>
+  <!-- full bleed background for maskable (no rounded corners) -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- icon scaled to 72% to fit within the 80% safe zone -->
+  <g transform="translate(256,256) scale(0.72)">
+    <polygon points="0,-95 148,-28 0,40 -148,-28" fill="white" opacity="0.96"/>
+    <rect x="-8" y="-28" width="16" height="108" rx="8" fill="white" opacity="0.9"/>
+    <ellipse cx="0" cy="84" rx="62" ry="20" fill="white" opacity="0.82"/>
+    <rect x="136" y="-28" width="14" height="74" rx="7" fill="white" opacity="0.84"/>
+    <circle cx="143" cy="60" r="16" fill="#fbbf24"/>
+    <circle cx="143" cy="60" r="10" fill="#f59e0b"/>
+  </g>
+</svg>
