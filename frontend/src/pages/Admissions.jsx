@@ -1,816 +1,1520 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
-import { confirm } from '../utils/confirm';
-import { QRCodeCanvas } from 'qrcode.react';
-import { createPortal } from 'react-dom';
-import { generateCertificate } from '../utils/generateCertificate';
 import {
-  UserPlus, Search, GraduationCap, Clock,
-  Trash2, Edit2, X, DollarSign, CheckCircle2, Phone,
-  Download, User, Calendar, Award, Key, Copy, RefreshCw
+  UserPlus, Search, Trash2, Edit2, X, Key, Copy, RefreshCw,
+  ChevronRight, ChevronLeft, Camera, User, Users, BookOpen,
+  MapPin, AlertCircle, School, CheckCircle2, Eye, EyeOff,
+  Phone, Calendar, Heart, Bus, Receipt, Printer, CheckSquare,
+  Square, Tag, BadgePercent, FileText,
 } from 'lucide-react';
+import localLogo from '../assets/logo2.jpeg';
 
-const Students = () => {
-  const [searchParams] = useSearchParams();
-  const [students, setStudents] = useState([]);
-  const [trainers, setTrainers] = useState([]);
-  const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('active'); // 'active' | 'alumni'
+const API_BASE = '';
 
-  const [showFormModal, setShowFormModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
+const BLOOD_GROUPS    = ['Unknown','A+','A-','B+','B-','AB+','AB-','O+','O-'];
+const RELIGIONS       = ['Islam','Christianity','Hinduism','Sikhism','Other'];
+const PROVINCES       = ['Punjab','Sindh','KPK','Balochistan','Gilgit-Baltistan','AJK','Islamabad'];
+const SUBJECT_GROUPS  = [
+  { value: 'None',             label: 'None (Primary / Middle)' },
+  { value: 'Pre-Medical',      label: 'Pre-Medical  (Bio, Chem, Phy)' },
+  { value: 'Pre-Engineering',  label: 'Pre-Engineering  (Math, Phy, Chem)' },
+  { value: 'Computer Science', label: 'Computer Science  (CS, Math, Phy)' },
+  { value: 'Arts',             label: 'Arts / Humanities' },
+  { value: 'Commerce',         label: 'Commerce  (Accounts, Economics)' },
+  { value: 'General Science',  label: 'General Science' },
+];
 
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterShift, setFilterShift] = useState('All');
+const TABS = [
+  { id: 'personal',  label: 'Personal',     icon: User },
+  { id: 'family',    label: 'Family',       icon: Users },
+  { id: 'academic',  label: 'Academic',     icon: BookOpen },
+  { id: 'address',   label: 'Address',      icon: MapPin },
+  { id: 'previous',  label: 'Prev. School', icon: School },
+  { id: 'medical',   label: 'Medical',      icon: Heart },
+  { id: 'fees',      label: 'Fees',         icon: Receipt },
+];
 
-  const initialForm = {
-    full_name: '', father_name: '', phone: '', guardian_phone: '',
-    email: '',
-    course_id: '', course_name: '', duration: '6 Months', shift: 'Morning',
-    total_fee: '', monthly_fee: '', admission_date: new Date().toISOString().split('T')[0],
-    trainer_id: '', visitor_id: ''
-  };
-  const [formData, setFormData] = useState(initialForm);
-  const [editId, setEditId] = useState(null);
-  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
-  const [newCredentials, setNewCredentials] = useState(null);
+const EMPTY_FORM = {
+  // Personal
+  full_name: '', dob: '', place_of_birth: '',
+  gender: 'male', religion: 'Islam', nationality: 'Pakistani',
+  domicile: '', blood_group: 'Unknown', b_form_no: '',
+  // Family
+  father_name: '', father_cnic: '', father_phone: '', father_occupation: '', father_employer: '',
+  mother_name: '', mother_cnic: '', mother_phone: '', mother_occupation: '',
+  guardian_name: '', guardian_phone: '', guardian_relation: '',
+  // Academic
+  school_class_id: '', section: '', academic_year_id: '', medium: 'English',
+  subject_group: 'None',
+  admission_date: new Date().toISOString().split('T')[0], siblings_in_school: 0,
+  // Address
+  address: '', city: '',
+  emergency_contact_name: '', emergency_contact_phone: '', emergency_contact_relation: '',
+  // Previous School
+  previous_school: '', previous_class: '', leaving_certificate_no: '', transfer_reason: '',
+  // Medical
+  disability: '', allergies: '', transport_required: false,
+  // Login
+  email: '',
+};
 
-  useEffect(() => { fetchStudents(); fetchTrainers(); fetchCourses(); }, []);
+const Label = ({ children, required }) => (
+  <label className="block text-xs font-semibold text-slate-600 mb-1">
+    {children}{required && <span className="text-red-500 ml-0.5">*</span>}
+  </label>
+);
 
-  // Auto-open form when navigated from Reception with pre-filled data
+const Input = ({ label, required, ...props }) => (
+  <div>
+    {label && <Label required={required}>{label}</Label>}
+    <input
+      {...props}
+      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white"
+    />
+  </div>
+);
+
+const Select = ({ label, required, children, ...props }) => (
+  <div>
+    {label && <Label required={required}>{label}</Label>}
+    <select
+      {...props}
+      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white"
+    >
+      {children}
+    </select>
+  </div>
+);
+
+export default function Admissions() {
+  const [students, setStudents]         = useState([]);
+  const [classes, setClasses]           = useState([]);
+  const [years, setYears]               = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [activeTab, setActiveTab]       = useState('active');
+  const [search, setSearch]             = useState('');
+  const [filterClass, setFilterClass]   = useState('');
+  const [showForm, setShowForm]         = useState(false);
+  const [formTab, setFormTab]           = useState('personal');
+  const [editId, setEditId]             = useState(null);
+  const [form, setForm]                 = useState(EMPTY_FORM);
+  const [photoFile, setPhotoFile]       = useState(null);
+  const [photoPreview, setPhotoPreview] = useState('');
+  const [submitting, setSubmitting]     = useState(false);
+  const [credentials, setCredentials]   = useState(null);
+  const [showProfile, setShowProfile]   = useState(null);
+  const photoRef = useRef();
+
+  // ── Fee tab state ────────────────────────────────────────────────────────
+  // undefined = never loaded, null = loaded but none found, object = found
+  const [feeStructure,    setFeeStructure]    = useState(undefined);
+  const [feeLoading,      setFeeLoading]      = useState(false);
+  const [selectedFees,    setSelectedFees]    = useState({});
+  const [feeDiscount,     setFeeDiscount]     = useState('');
+  const [feePaid,         setFeePaid]         = useState('');
+  const [feePayMethod,    setFeePayMethod]    = useState('cash');
+  const [feeNotes,        setFeeNotes]        = useState('');
+  const [printSlip,       setPrintSlip]       = useState(null);
+  const printRef = useRef();
+
+  // ── Family lookup state ──────────────────────────────────────────────────
+  const [familyMatches,   setFamilyMatches]   = useState([]);   // siblings found by phone
+  const [familySearching, setFamilySearching] = useState(false);
+  const [confirmedSibIds, setConfirmedSibIds] = useState(new Set()); // confirmed sibling _ids
+  const familySearchRef = useRef(null);
+
   useEffect(() => {
-    const name = searchParams.get('name');
-    if (name) {
-      setFormData(prev => ({
-        ...prev,
-        full_name: name,
-        phone: searchParams.get('phone') || '',
-        course_name: searchParams.get('course') || '',
-        visitor_id: searchParams.get('visitor_id') || ''
-      }));
-      setEditId(null);
-      setShowFormModal(true);
-    }
+    Promise.all([
+      api.get('/students'),
+      api.get('/school-classes'),
+      api.get('/academic-years'),
+    ]).then(([s, c, y]) => {
+      setStudents(Array.isArray(s.data) ? s.data : (s.data?.students || []));
+      setClasses(c.data || []);
+      setYears(y.data || []);
+    }).catch(err => {
+      console.error('Admissions load error:', err);
+      toast.error('Failed to load data');
+    }).finally(() => setLoading(false));
   }, []);
 
+  // ── Family lookup: debounce on father_phone / mother_phone ──────────────
   useEffect(() => {
-    document.body.style.overflow = (showFormModal || showProfileModal || showCredentialsModal) ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [showFormModal, showProfileModal, showCredentialsModal]);
-
-  const fetchStudents = async () => {
-    setLoading(true);
-    try {
-      const { data } = await api.get('/students');
-      setStudents(data);
-    } catch (error) { toast.error('Failed to load students'); }
-    finally { setLoading(false); }
-  };
-
-  const fetchTrainers = async () => {
-    try {
-      const { data } = await api.get('/staff/trainers');
-      setTrainers(data);
-    } catch (error) { /* trainers list optional */ }
-  };
-
-  const fetchCourses = async () => {
-    try {
-      const { data } = await api.get('/courses');
-      setCourses(data.filter(c => c.is_active));
-    } catch { /* optional */ }
-  };
-
-  const handleGraduate = async (student) => {
-    if (!await confirm(`Mark ${student.full_name} as graduated? This cannot be undone.`, { title: 'Graduate Student', confirmText: 'Graduate', danger: false })) return;
-    try {
-      await api.put(`/students/${student._id}/graduate`);
-      toast.success(`${student.full_name} graduated!`);
-      setShowProfileModal(false);
-      fetchStudents();
-    } catch { toast.error('Failed to graduate student'); }
-  };
-
-  const printStudentID = () => {
-    const doc = new jsPDF({ unit: 'mm', format: [85.6, 54] }); // Standard ID card size
-    // Background
-    doc.setFillColor(248, 250, 252);
-    doc.rect(0, 0, 85.6, 54, 'F');
-    // Header bar
-    doc.setFillColor(15, 23, 42);
-    doc.rect(0, 0, 85.6, 14, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(7);
-    doc.text('INFLORESCENCE', 42.8, 6, { align: 'center' });
-    doc.setFontSize(5);
-    doc.text('STUDENT IDENTITY CARD', 42.8, 11, { align: 'center' });
-    // Avatar circle
-    doc.setFillColor(79, 70, 229);
-    doc.circle(14, 32, 9, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(11);
-    doc.text(selectedStudent.full_name.charAt(0).toUpperCase(), 14, 35.5, { align: 'center' });
-    // Student info
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(9);
-    doc.text(selectedStudent.full_name, 27, 21);
-    doc.setFontSize(6);
-    doc.setTextColor(100, 116, 139);
-    doc.text(selectedStudent.roll_number, 27, 27);
-    doc.text(selectedStudent.courses[0]?.course_name || '', 27, 32);
-    doc.text(`${selectedStudent.courses[0]?.shift || ''} — ${selectedStudent.courses[0]?.duration || ''}`, 27, 37);
-    // QR code from canvas
-    const canvas = document.getElementById('qr-gen');
-    if (canvas) {
-      const qrImg = canvas.toDataURL('image/png');
-      doc.addImage(qrImg, 'PNG', 64, 16, 19, 19);
+    const phone = form.father_phone || form.mother_phone;
+    const clean = phone?.replace(/[^0-9]/g, '') || '';
+    if (clean.length < 9) {
+      setFamilyMatches([]);
+      return;
     }
-    // Footer
-    doc.setFillColor(226, 232, 240);
-    doc.rect(0, 47, 85.6, 7, 'F');
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(5);
-    doc.text(`Issued: ${new Date().getFullYear()} | Valid for current session`, 42.8, 51.5, { align: 'center' });
-    doc.save(`${selectedStudent.full_name}_ID_Card.pdf`);
-    toast.success('ID Card Downloaded!');
-  };
-
-  const downloadCertificate = () => {
-    generateCertificate(selectedStudent);
-    toast.success('Certificate Downloaded!');
-  };
-
-  const handleCourseSelect = (courseId) => {
-    const course = courses.find(c => c._id === courseId);
-    if (!course) return setFormData({ ...formData, course_id: '', course_name: '', total_fee: '', monthly_fee: '', duration: '6 Months', trainer_id: '' });
-    // Auto-fill trainer if one is assigned to this course
-    const assignedTrainer = trainers.find(t => (t.assigned_courses || []).includes(course.name));
-    setFormData({
-      ...formData,
-      course_id: course._id,
-      course_name: course.name,
-      total_fee: course.total_fee,
-      monthly_fee: course.monthly_fee,
-      duration: course.duration,
-      trainer_id: assignedTrainer ? assignedTrainer._id : formData.trainer_id
-    });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editId) {
-        await api.put(`/students/${editId}`, formData);
-        toast.success('Student Updated Successfully');
-        setShowFormModal(false);
-        setEditId(null);
-        setFormData(initialForm);
-        fetchStudents();
-      } else {
-        const { data } = await api.post('/students/add', formData);
-        toast.success('Student enrolled! Credentials sent to their Gmail.');
-        setShowFormModal(false);
-        setEditId(null);
-        setFormData(initialForm);
-        fetchStudents();
-        if (data.credentials) {
-          setNewCredentials(data.credentials);
-          setShowCredentialsModal(true);
+    clearTimeout(familySearchRef.current);
+    familySearchRef.current = setTimeout(async () => {
+      setFamilySearching(true);
+      try {
+        const { data } = await api.get('/students/family-lookup', { params: { phone: clean } });
+        // Exclude the student being edited from results
+        const matches = (data.students || []).filter(s => s._id !== editId);
+        setFamilyMatches(matches);
+        // Pre-confirm all found siblings
+        setConfirmedSibIds(new Set(matches.map(s => s._id)));
+        // Auto-update siblings_in_school count
+        if (matches.length > 0) {
+          setField('siblings_in_school', matches.length);
         }
+      } catch {
+        setFamilyMatches([]);
+      } finally {
+        setFamilySearching(false);
       }
-    } catch (error) { toast.error('Operation Failed'); }
+    }, 600);
+    return () => clearTimeout(familySearchRef.current);
+  }, [form.father_phone, form.mother_phone]);
+
+  const applyFamilyData = (family) => {
+    if (!family) return;
+    setForm(f => ({
+      ...f,
+      father_name:       family.father_name       || f.father_name,
+      father_cnic:       family.father_cnic        || f.father_cnic,
+      father_phone:      family.father_phone       || f.father_phone,
+      father_occupation: family.father_occupation  || f.father_occupation,
+      father_employer:   family.father_employer    || f.father_employer,
+      mother_name:       family.mother_name        || f.mother_name,
+      mother_cnic:       family.mother_cnic        || f.mother_cnic,
+      mother_phone:      family.mother_phone       || f.mother_phone,
+      mother_occupation: family.mother_occupation  || f.mother_occupation,
+      address:           family.address            || f.address,
+      city:              family.city               || f.city,
+    }));
+    toast.success('Family data filled in automatically');
   };
 
-  const handleResetCredentials = async (studentId) => {
+  // Auto-fetch fee structure when user opens the Fees tab
+  useEffect(() => {
+    if (formTab !== 'fees' || !showForm) return;
+    if (!form.school_class_id || !form.academic_year_id) return;
+    if (feeStructure !== undefined || feeLoading) return; // already loaded or loading
+    fetchFeeStructure(form.school_class_id, form.academic_year_id);
+  }, [formTab, showForm, form.school_class_id, form.academic_year_id]);
+
+  const setField = (field, value) => {
+    setForm(f => ({ ...f, [field]: value }));
+    // Reset fee structure when class or year changes so it reloads
+    if (field === 'school_class_id' || field === 'academic_year_id') {
+      setFeeStructure(undefined);
+      setSelectedFees({});
+    }
+  };
+
+  const fetchFeeStructure = async (classId, yearId) => {
+    if (!classId || !yearId) return;
+    setFeeLoading(true);
     try {
-      const { data } = await api.get(`/students/${studentId}/credentials`);
-      setNewCredentials(data);
-      setShowCredentialsModal(true);
+      const { data } = await api.get('/fee-structure/structures', {
+        params: { class_id: classId, academic_year_id: yearId },
+      });
+      const structure = Array.isArray(data) ? (data[0] || null) : (data || null);
+      setFeeStructure(structure); // null = none found, object = found
+      if (structure?.items?.length) {
+        const pre = {};
+        structure.items.forEach(item => { pre[item._id] = true; });
+        setSelectedFees(pre);
+      }
+    } catch {
+      setFeeStructure(null);
+    } finally {
+      setFeeLoading(false);
+    }
+  };
+
+  const handlePhoto = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) { toast.error('Photo must be under 3 MB'); return; }
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const resetFeeState = () => {
+    setFeeStructure(undefined);
+    setSelectedFees({});
+    setFeeDiscount('');
+    setFeePaid('');
+    setFeePayMethod('cash');
+    setFeeNotes('');
+    setFamilyMatches([]);
+    setConfirmedSibIds(new Set());
+    clearTimeout(familySearchRef.current);
+  };
+
+  const openAdd = () => {
+    setEditId(null);
+    setForm(EMPTY_FORM);
+    setPhotoFile(null);
+    setPhotoPreview('');
+    setFormTab('personal');
+    resetFeeState();
+    setShowForm(true);
+  };
+
+  const openEdit = (s) => {
+    setEditId(s._id);
+    setForm({
+      full_name: s.full_name || '',
+      dob: s.dob ? new Date(s.dob).toISOString().split('T')[0] : '',
+      place_of_birth: s.place_of_birth || '',
+      gender: s.gender || 'male', religion: s.religion || 'Islam',
+      nationality: s.nationality || 'Pakistani', domicile: s.domicile || '',
+      blood_group: s.blood_group || 'Unknown', b_form_no: s.b_form_no || '',
+      father_name: s.father_name || '', father_cnic: s.father_cnic || '',
+      father_phone: s.father_phone || '', father_occupation: s.father_occupation || '',
+      father_employer: s.father_employer || '',
+      mother_name: s.mother_name || '', mother_cnic: s.mother_cnic || '',
+      mother_phone: s.mother_phone || '', mother_occupation: s.mother_occupation || '',
+      guardian_name: s.guardian_name || '', guardian_phone: s.guardian_phone || '',
+      guardian_relation: s.guardian_relation || '',
+      school_class_id: s.school_class_id?._id || s.school_class_id || '',
+      section: s.section || '',
+      academic_year_id: s.academic_year_id?._id || s.academic_year_id || '',
+      medium: s.medium || 'English',
+      subject_group: s.subject_group || 'None',
+      admission_date: s.admission_date ? new Date(s.admission_date).toISOString().split('T')[0] : '',
+      siblings_in_school: s.siblings_in_school || 0,
+      address: s.address || '', city: s.city || '',
+      emergency_contact_name: s.emergency_contact_name || '',
+      emergency_contact_phone: s.emergency_contact_phone || '',
+      emergency_contact_relation: s.emergency_contact_relation || '',
+      previous_school: s.previous_school || '', previous_class: s.previous_class || '',
+      leaving_certificate_no: s.leaving_certificate_no || '',
+      transfer_reason: s.transfer_reason || '',
+      disability: s.disability || '', allergies: s.allergies || '',
+      transport_required: s.transport_required || false,
+      email: s.email || '',
+    });
+    setPhotoFile(null);
+    setPhotoPreview(s.photo ? `${API_BASE}/uploads/students/${s.photo}` : '');
+    setFormTab('personal');
+    resetFeeState();
+    setShowForm(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!form.full_name.trim()) { toast.error('Full name is required'); setFormTab('personal'); return; }
+    if (!form.father_name.trim()) { toast.error('Father name is required'); setFormTab('family'); return; }
+    if (!form.school_class_id) { toast.error('Please select a class'); setFormTab('academic'); return; }
+
+    setSubmitting(true);
+    try {
+      const fd = new FormData();
+      Object.entries(form).forEach(([k, v]) => fd.append(k, v));
+      if (photoFile) fd.append('photo', photoFile);
+
+      if (editId) {
+        const { data } = await api.put(`/students/${editId}`, fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        setStudents(prev => prev.map(s => s._id === editId ? data : s));
+        toast.success('Student updated');
+        setShowForm(false);
+      } else {
+        const { data } = await api.post('/students/add', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        setStudents(prev => [data.student, ...prev]);
+
+        // ── Generate first-month fee invoice if fee items selected ──────────
+        const selItems = feeStructure?.items?.filter(it => selectedFees[it._id]) || [];
+        let invoiceData = null;
+        if (selItems.length && form.academic_year_id) {
+          try {
+            const now = new Date();
+            const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const discount = Number(feeDiscount) || 0;
+            const rawTotal = selItems.reduce((s, it) => s + it.amount, 0);
+            const totalAmount = Math.max(0, rawTotal - discount);
+            const paidNow = Math.min(Number(feePaid) || 0, totalAmount);
+
+            const invRes = await api.post('/fee-structure/invoices/create-single', {
+              student_id:       data.student._id,
+              class_id:         form.school_class_id,
+              academic_year_id: form.academic_year_id,
+              month,
+              items: selItems.map(it => ({
+                fee_head_id:   it.fee_head_id,
+                fee_head_name: it.fee_head_name,
+                amount:        it.amount,
+              })),
+              discount_amount: discount,
+              total_amount:    totalAmount,
+              paid_amount:     paidNow,
+              balance:         totalAmount - paidNow,
+              status:          paidNow >= totalAmount ? 'paid' : paidNow > 0 ? 'partial' : 'unpaid',
+              notes:           feeNotes,
+              payment_method:  feePayMethod,
+            });
+            invoiceData = invRes.data;
+          } catch (err) {
+            toast.warn('Student enrolled but invoice generation failed: ' + (err.response?.data?.message || err.message));
+          }
+        }
+
+        // Build print-slip data
+        const cls  = classes.find(c => c._id === form.school_class_id);
+        const yr   = years.find(y => y._id === form.academic_year_id);
+        setPrintSlip({
+          student:    data.student,
+          credentials: data.credentials,
+          className:  cls ? `${cls.name}–${cls.section || 'A'}` : '—',
+          yearLabel:  yr?.label || '—',
+          feeItems:   selItems,
+          discount:   Number(feeDiscount) || 0,
+          totalAmount: selItems.reduce((s, i) => s + i.amount, 0) - (Number(feeDiscount) || 0),
+          paidNow:    Math.min(Number(feePaid) || 0, Math.max(0, selItems.reduce((s, i) => s + i.amount, 0) - (Number(feeDiscount) || 0))),
+          payMethod:  feePayMethod,
+          notes:      feeNotes,
+          date:       new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'long', year: 'numeric' }),
+          invoiceId:  invoiceData?._id || null,
+        });
+        setCredentials(data.credentials);
+        setShowForm(false);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save student');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this student record? This cannot be undone.')) return;
+    try {
+      await api.delete(`/students/${id}`);
+      setStudents(prev => prev.filter(s => s._id !== id));
+      toast.success('Student deleted');
+    } catch { toast.error('Delete failed'); }
+  };
+
+  const handleResetCredentials = async (id) => {
+    try {
+      const { data } = await api.get(`/students/${id}/credentials`);
+      setCredentials(data);
     } catch { toast.error('Failed to reset credentials'); }
   };
 
-  const handleDelete = async (id, e) => {
-    e.stopPropagation(); 
-    if (!await confirm('All attendance and fee records will be permanently deleted.', { title: 'Delete Student' })) return;
-    try {
-      await api.delete(`/students/${id}`);
-      toast.success('Student Deleted');
-      fetchStudents();
-    } catch (error) { toast.error('Delete Failed'); }
-  };
+  const photoUrl = (s) => s.photo ? `${API_BASE}/uploads/students/${s.photo}` : null;
 
-  const openEditModal = (student, e) => {
-    e.stopPropagation();
-    const c = student.courses[0];
-    setFormData({
-      full_name: student.full_name,
-      father_name: student.father_name,
-      phone: student.phone,
-      guardian_phone: student.guardian_phone,
-      email: student.email || '',
-      course_id: c?.course_id || '',
-      course_name: c?.course_name || '',
-      duration: c?.duration || '',
-      shift: c?.shift || 'Morning',
-      total_fee: c?.total_fee || '',
-      monthly_fee: c?.monthly_fee || '',
-      admission_date: c?.admission_date ? c.admission_date.split('T')[0] : '',
-      trainer_id: c?.trainer_id?._id || c?.trainer_id || ''
+  const filtered = students
+    .filter(s => activeTab === 'active' ? s.isActive : !s.isActive)
+    .filter(s => {
+      if (filterClass && s.school_class_id?._id !== filterClass && s.school_class_id !== filterClass) return false;
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return s.full_name?.toLowerCase().includes(q)
+        || s.roll_number?.toLowerCase().includes(q)
+        || s.father_name?.toLowerCase().includes(q);
     });
-    setEditId(student._id);
-    setShowFormModal(true);
-  };
 
-  const openProfile = (student) => {
-    setSelectedStudent(student);
-    setShowProfileModal(true);
-  };
-
-  const downloadQR = () => {
-    const canvas = document.getElementById('qr-gen');
-    const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
-    let downloadLink = document.createElement("a");
-    downloadLink.href = pngUrl;
-    downloadLink.download = `${selectedStudent.full_name}_QR.png`;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-  };
-
-  const filteredStudents = students.filter(s => {
-    const matchTab = activeTab === 'active' ? s.isActive !== false : s.isActive === false;
-    const matchSearch = s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        s.roll_number.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchShift = filterShift === 'All' || s.courses[0]?.shift === filterShift;
-    return matchTab && matchSearch && matchShift;
-  });
-
-  // ─── Shared input style ───────────────────────────────────────────────────
-  const inputStyle = {
-    width: '100%', background: '#f8fafc', border: '1.5px solid #e2e8f0',
-    borderRadius: '0.75rem', padding: '0.85rem 1rem', fontSize: '0.9rem',
-    fontWeight: 500, color: '#334155', outline: 'none', boxSizing: 'border-box'
-  };
-  const labelStyle = {
-    display: 'block', fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8',
-    textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.4rem'
-  };
-  const sectionTitleStyle = {
-    fontSize: '0.68rem', fontWeight: 700, color: '#3b82f6',
-    textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem', marginTop: 0
-  };
-
-  // ─── ADMISSION FORM MODAL (Portal → renders into document.body) ───────────
-  const formModalPortal = createPortal(
-    <div
-      onClick={(e) => { if (e.target === e.currentTarget) setShowFormModal(false); }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 99999,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '1rem',
-        backgroundColor: 'rgba(15,23,42,0.75)',
-        backdropFilter: 'blur(6px)',
-      }}
-    >
-      <div style={{
-        width: '100%', maxWidth: '780px',
-        maxHeight: 'calc(100vh - 2rem)',
-        backgroundColor: '#fff', borderRadius: '1.75rem',
-        boxShadow: '0 32px 80px rgba(0,0,0,0.3)',
-        display: 'flex', flexDirection: 'column', overflow: 'hidden',
-      }}>
-
-        {/* ── Static Header ── */}
-        <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-          <div>
-            <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>
-              {editId ? 'Update Profile' : 'New Admission'}
-            </h3>
-            <p style={{ margin: '3px 0 0', color: '#94a3b8', fontSize: '0.875rem' }}>Enter student details carefully.</p>
-          </div>
-          <button onClick={() => setShowFormModal(false)} style={{ padding: '0.5rem', background: '#f1f5f9', border: 'none', borderRadius: '50%', cursor: 'pointer', display: 'flex', color: '#64748b', transition: 'all 0.15s' }}
-            onMouseEnter={e => Object.assign(e.currentTarget.style, { background: '#fee2e2', color: '#e11d48' })}
-            onMouseLeave={e => Object.assign(e.currentTarget.style, { background: '#f1f5f9', color: '#64748b' })}
-          >
-            <X size={22}/>
-          </button>
-        </div>
-
-        {/* ── Scrollable Body ── */}
-        <div style={{ overflowY: 'auto', flex: 1, padding: '2rem' }}>
-          <form onSubmit={handleSubmit}>
-
-            {/* Personal Info */}
-            <p style={sectionTitleStyle}>Personal Information</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
-              {[
-                { label: 'Full Name', key: 'full_name', placeholder: 'e.g. Ali Khan', required: true },
-                { label: 'Father Name', key: 'father_name', placeholder: '' },
-                { label: 'Phone', key: 'phone', placeholder: '0300-xxxxxxx', required: true },
-                { label: 'Guardian Phone', key: 'guardian_phone', placeholder: '' },
-              ].map(({ label, key, placeholder, required }) => (
-                <div key={key}>
-                  <label style={labelStyle}>{label}</label>
-                  <input required={required} value={formData[key]} placeholder={placeholder}
-                    onChange={e => setFormData({ ...formData, [key]: e.target.value })}
-                    style={inputStyle}
-                    onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                    onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Gmail — required for student portal login */}
-            <div style={{ marginBottom: '2rem', background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: '0.875rem', padding: '1rem 1.25rem' }}>
-              <label style={{ ...labelStyle, color: '#1d4ed8' }}>
-                Student Gmail Address (Login Username) *
-              </label>
-              <input
-                type="email"
-                required={!editId}
-                value={formData.email}
-                placeholder="student@gmail.com"
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                style={{ ...inputStyle, borderColor: '#93c5fd' }}
-                onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                onBlur={e => e.target.style.borderColor = '#93c5fd'}
-              />
-              <p style={{ margin: '0.4rem 0 0', fontSize: '0.75rem', color: '#2563eb' }}>
-                Login credentials will be sent to this Gmail address automatically.
-              </p>
-            </div>
-
-            {/* Academic Details */}
-            <p style={sectionTitleStyle}>Academic Details</p>
-            {courses.length > 0 && (
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={labelStyle}>Pick from Course Catalog (auto-fills fees)</label>
-                <select
-                  onChange={e => handleCourseSelect(e.target.value)}
-                  style={{ ...inputStyle, color: '#3b82f6', fontWeight: 700 }}
-                  onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                  onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                >
-                  <option value="">— Select a course —</option>
-                  {courses.map(c => {
-                    const t = trainers.find(tr => (tr.assigned_courses || []).includes(c.name));
-                    return (
-                      <option key={c._id} value={c._id}>
-                        {c.name} · {c.duration} · Rs. {c.total_fee?.toLocaleString()}{t ? ` · Teacher: ${t.name}` : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '1.25rem' }}>
-              <div>
-                <label style={labelStyle}>Course Name</label>
-                <input required value={formData.course_name} placeholder="e.g. Web Development"
-                  onChange={e => setFormData({ ...formData, course_name: e.target.value })}
-                  style={inputStyle}
-                  onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                  onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>
-                  Assign Trainer
-                  {formData.trainer_id && trainers.find(t => t._id === formData.trainer_id) && (
-                    <span style={{ marginLeft: '0.4rem', fontSize: '0.65rem', fontWeight: 700, color: '#10b981', background: '#d1fae5', padding: '1px 6px', borderRadius: '99px', border: '1px solid #a7f3d0' }}>
-                      ✓ Auto-filled
-                    </span>
-                  )}
-                </label>
-                <select value={formData.trainer_id}
-                  onChange={e => setFormData({ ...formData, trainer_id: e.target.value })}
-                  style={inputStyle}
-                  onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                  onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                >
-                  <option value="">— No Trainer —</option>
-                  {trainers.map(t => (
-                    <option key={t._id} value={t._id}>
-                      {t.name}{t.commission_percent > 0 ? ` (${t.commission_percent}% commission)` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem', marginBottom: '2rem' }}>
-              {[
-                { label: 'Duration', key: 'duration', options: ['3 Months', '6 Months', '1 Year', '2 Years'] },
-                { label: 'Shift', key: 'shift', options: ['Morning', 'Afternoon', 'Evening', 'Weekend'] },
-              ].map(({ label, key, options }) => (
-                <div key={key}>
-                  <label style={labelStyle}>{label}</label>
-                  <select value={formData[key]} onChange={e => setFormData({ ...formData, [key]: e.target.value })}
-                    style={inputStyle}
-                    onFocus={e => e.target.style.borderColor = '#3b82f6'}
-                    onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-                  >
-                    {options.map(o => <option key={o}>{o}</option>)}
-                  </select>
-                </div>
-              ))}
-            </div>
-
-            {/* Fee Structure */}
-            <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '1rem', padding: '1.5rem', marginBottom: '2rem' }}>
-              <p style={{ ...sectionTitleStyle, color: '#475569', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <DollarSign size={15} color="#10b981"/> Fee Structure
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-                {[
-                  { label: 'Total Course Fee', key: 'total_fee' },
-                  { label: 'Monthly Installment', key: 'monthly_fee' },
-                ].map(({ label, key }) => (
-                  <div key={key}>
-                    <label style={labelStyle}>{label}</label>
-                    <div style={{ display: 'flex', border: '1.5px solid #e2e8f0', borderRadius: '0.75rem', overflow: 'hidden', background: '#fff' }}>
-                      <span style={{ padding: '0 0.9rem', background: '#e2e8f0', color: '#475569', fontWeight: 700, fontSize: '0.8rem', display: 'flex', alignItems: 'center', alignSelf: 'stretch', borderRight: '1.5px solid #cbd5e1', flexShrink: 0 }}>Rs.</span>
-                      <input type="number" min="0" value={formData[key]} placeholder="0"
-                        onChange={e => setFormData({ ...formData, [key]: e.target.value })}
-                        style={{ flex: 1, padding: '0.85rem 1rem', fontSize: '0.9rem', fontWeight: 700, color: '#1e293b', border: 'none', outline: 'none', background: 'transparent', minWidth: 0 }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Submit */}
-            <button type="submit"
-              style={{ width: '100%', background: '#0f172a', color: '#fff', padding: '1rem', borderRadius: '0.875rem', fontSize: '1rem', fontWeight: 700, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#1e293b'}
-              onMouseLeave={e => e.currentTarget.style.background = '#0f172a'}
-            >
-              <CheckCircle2 size={22} color="#34d399"/>
-              {editId ? 'Update Record' : 'Confirm Admission'}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>,
-    document.body
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-sky-600" />
+    </div>
   );
 
-  // ─── PROFILE MODAL (Portal) ───────────────────────────────────────────────
-  const profileModalPortal = selectedStudent ? createPortal(
-    <div
-      onClick={(e) => { if (e.target === e.currentTarget) setShowProfileModal(false); }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 99999,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '1rem',
-        backgroundColor: 'rgba(15,23,42,0.82)',
-        backdropFilter: 'blur(8px)',
-      }}
-    >
-      <div style={{ width: '100%', maxWidth: '860px', maxHeight: 'calc(100vh - 2rem)', backgroundColor: '#fff', borderRadius: '2rem', boxShadow: '0 32px 80px rgba(0,0,0,0.35)', display: 'flex', overflow: 'hidden' }}>
-        
-        {/* Left: ID Card */}
-        <div style={{ width: 270, flexShrink: 0, background: '#f8fafc', borderRight: '1px solid #e2e8f0', padding: '2.5rem 1.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ background: '#fff', padding: '1.75rem 1.5rem', borderRadius: '1.5rem', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', border: '1px solid #f1f5f9', width: '100%', textAlign: 'center', position: 'relative', zIndex: 1 }}>
-            <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#0f172a', color: '#fff', fontSize: '2rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', boxShadow: '0 4px 16px rgba(0,0,0,0.18)' }}>
-              {selectedStudent.full_name.charAt(0)}
-            </div>
-            <h2 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#1e293b', margin: '0 0 4px' }}>{selectedStudent.full_name}</h2>
-            <p style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 500, marginBottom: '1.25rem' }}>{selectedStudent.roll_number}</p>
-            <div style={{ background: '#fff', padding: '0.5rem', borderRadius: '0.75rem', border: '2px dashed #cbd5e1', display: 'inline-block', marginBottom: '1rem' }}>
-              <QRCodeCanvas id="qr-gen" value={selectedStudent.roll_number} size={110} level="H" includeMargin={true}/>
-            </div>
-            <button onClick={downloadQR} style={{ width: '100%', padding: '0.65rem', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '0.75rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 8 }}>
-              <Download size={15}/> Download QR
-            </button>
-            <button onClick={printStudentID} style={{ width: '100%', padding: '0.65rem', background: '#0f172a', color: '#fff', border: 'none', borderRadius: '0.75rem', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              <Download size={15}/> Print ID Card
-            </button>
-          </div>
-          <div style={{ position: 'absolute', top: -80, left: -80, width: 220, height: 220, background: 'rgba(99,102,241,0.07)', borderRadius: '50%' }}/>
-          <div style={{ position: 'absolute', bottom: -80, right: -80, width: 220, height: 220, background: 'rgba(168,85,247,0.07)', borderRadius: '50%' }}/>
-        </div>
-
-        {/* Right: Details */}
-        <div style={{ flex: 1, padding: '2rem 2.5rem', overflowY: 'auto', position: 'relative' }}>
-          <button onClick={() => setShowProfileModal(false)}
-            style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', padding: '0.5rem', background: '#f1f5f9', border: 'none', borderRadius: '50%', cursor: 'pointer', display: 'flex', color: '#64748b' }}
-            onMouseEnter={e => Object.assign(e.currentTarget.style, { background: '#fee2e2', color: '#e11d48' })}
-            onMouseLeave={e => Object.assign(e.currentTarget.style, { background: '#f1f5f9', color: '#64748b' })}
-          >
-            <X size={20}/>
-          </button>
-
-          <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#1e293b', marginBottom: '1.75rem', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <User size={22} color="#6366f1"/> Student Profile
-          </h3>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
-            {[
-              { label: 'Father Name', value: selectedStudent.father_name || 'N/A' },
-              { label: 'Phone', value: selectedStudent.phone, icon: <Phone size={13} color="#94a3b8"/> },
-              { label: 'Guardian Phone', value: selectedStudent.guardian_phone || 'N/A', icon: <Phone size={13} color="#94a3b8"/> },
-              { label: 'Admission Date', value: selectedStudent.courses[0]?.admission_date ? new Date(selectedStudent.courses[0].admission_date).toLocaleDateString() : 'N/A', icon: <Calendar size={13} color="#94a3b8"/> },
-            ].map(({ label, value, icon }) => (
-              <div key={label}>
-                <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4, marginTop: 0 }}>{label}</p>
-                <p style={{ fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}>{icon}{value}</p>
-              </div>
-            ))}
-          </div>
-
-          <hr style={{ border: 'none', borderTop: '1px solid #f1f5f9', margin: '1.5rem 0' }}/>
-
-          <div style={{ background: '#f8fafc', borderRadius: '1rem', border: '1px solid #f1f5f9', padding: '1.5rem', marginBottom: '1.5rem' }}>
-            <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '1rem', marginTop: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-              <GraduationCap size={15} color="#f97316"/> Academic Details
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: 4 }}>Enrolled Course</p>
-                <p style={{ fontWeight: 800, fontSize: '1.1rem', color: '#1e293b', margin: 0 }}>{selectedStudent.courses[0]?.course_name}</p>
-              </div>
-              <div>
-                <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: 4 }}>Shift & Duration</p>
-                <p style={{ fontWeight: 700, color: '#1e293b', margin: 0 }}>{selectedStudent.courses[0]?.shift} • {selectedStudent.courses[0]?.duration}</p>
-              </div>
-              {selectedStudent.courses[0]?.trainer_id && (
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: 4 }}>Assigned Trainer</p>
-                  <p style={{ fontWeight: 700, color: '#1e293b', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ background: '#d1fae5', color: '#065f46', padding: '2px 10px', borderRadius: 20, fontSize: '0.85rem', fontWeight: 700 }}>
-                      {selectedStudent.courses[0].trainer_id?.name || trainers.find(t => t._id === selectedStudent.courses[0].trainer_id)?.name || 'Trainer'}
-                    </span>
-                    {selectedStudent.courses[0].trainer_commission_percent > 0 && (
-                      <span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 10px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 700 }}>
-                        {selectedStudent.courses[0].trainer_commission_percent}% Commission
-                      </span>
-                    )}
-                  </p>
-                </div>
-              )}
-
-              {/* Batch Info */}
-              {(() => {
-                const batch = selectedStudent.courses[0]?.batch_id;
-                if (!batch) return (
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: 4 }}>Batch</p>
-                    <span style={{ background: '#f1f5f9', color: '#94a3b8', padding: '3px 12px', borderRadius: 20, fontSize: '0.8rem', fontWeight: 600 }}>Not assigned to any batch</span>
-                  </div>
-                );
-                const shiftColors = { Morning: '#fef3c7', Afternoon: '#dbeafe', Evening: '#ede9fe', Weekend: '#dcfce7' };
-                const shiftText = { Morning: '#92400e', Afternoon: '#1e40af', Evening: '#4c1d95', Weekend: '#14532d' };
-                return (
-                  <div style={{ gridColumn: '1 / -1', background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', borderRadius: '0.875rem', padding: '1rem 1.25rem' }}>
-                    <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.625rem', marginTop: 0 }}>Batch</p>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
-                      <div>
-                        <p style={{ margin: 0, fontWeight: 800, fontSize: '1rem', color: '#fff' }}>{batch.name}</p>
-                        {(batch.start_date || batch.end_date) && (
-                          <p style={{ margin: '0.2rem 0 0', fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>
-                            {batch.start_date ? new Date(batch.start_date).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }) : '?'}
-                            {' → '}
-                            {batch.end_date ? new Date(batch.end_date).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Ongoing'}
-                          </p>
-                        )}
-                      </div>
-                      {batch.shift && (
-                        <span style={{ background: shiftColors[batch.shift] || '#f1f5f9', color: shiftText[batch.shift] || '#475569', padding: '4px 12px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 700, flexShrink: 0 }}>
-                          {batch.shift}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-            <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '1rem', padding: '1.25rem' }}>
-              <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', marginBottom: 6, marginTop: 0 }}>Monthly Fee</p>
-              <p style={{ fontSize: '1.6rem', fontWeight: 800, color: '#15803d', margin: 0 }}>Rs. {(selectedStudent.courses[0]?.monthly_fee || 0).toLocaleString()}</p>
-            </div>
-            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '1rem', padding: '1.25rem' }}>
-              <p style={{ fontSize: '0.68rem', fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', marginBottom: 6, marginTop: 0 }}>Total Fee</p>
-              <p style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1d4ed8', margin: 0 }}>Rs. {(selectedStudent.courses[0]?.total_fee || 0).toLocaleString()}</p>
-            </div>
-          </div>
-
-          {selectedStudent.isActive !== false ? (
-            <button
-              onClick={() => handleGraduate(selectedStudent)}
-              style={{ width: '100%', padding: '0.9rem', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '0.875rem', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-              onMouseEnter={e => e.currentTarget.style.background = '#15803d'}
-              onMouseLeave={e => e.currentTarget.style.background = '#16a34a'}
-            >
-              🎓 Mark as Graduated
-            </button>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '0.875rem', padding: '0.75rem', textAlign: 'center', color: '#15803d', fontWeight: 700, fontSize: '0.88rem' }}>
-                ✓ Graduated — {selectedStudent.courses[0]?.completion_date ? new Date(selectedStudent.courses[0].completion_date).toLocaleDateString() : ''}
-              </div>
-              <button
-                onClick={downloadCertificate}
-                style={{ width: '100%', padding: '0.9rem', background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '0.875rem', fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                onMouseEnter={e => e.currentTarget.style.background = '#4338ca'}
-                onMouseLeave={e => e.currentTarget.style.background = '#4f46e5'}
-              >
-                <Award size={18}/> Download Certificate PDF
-              </button>
-            </div>
-          )}
-          <button
-            onClick={() => { setShowProfileModal(false); handleResetCredentials(selectedStudent._id); }}
-            style={{ width: '100%', marginTop: 10, padding: '0.75rem', background: '#f8fafc', color: '#475569', border: '1.5px solid #e2e8f0', borderRadius: '0.875rem', fontSize: '0.88rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-          >
-            <RefreshCw size={16}/> Reset Login Credentials
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  ) : null;
-
-  const credentialsModalPortal = showCredentialsModal && newCredentials ? createPortal(
-    <div style={{ position: 'fixed', inset: 0, zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(8px)' }}>
-      <div style={{ width: '100%', maxWidth: '480px', backgroundColor: '#fff', borderRadius: '2rem', boxShadow: '0 40px 100px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
-        <div style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #4f46e5 100%)', padding: '2rem', textAlign: 'center' }}>
-          <div style={{ width: 64, height: 64, background: 'rgba(255,255,255,0.15)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-            <Key size={28} color="#fff"/>
-          </div>
-          <h3 style={{ color: '#fff', fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>Login Credentials Generated</h3>
-          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.85rem', marginTop: '0.4rem' }}>✅ Credentials have been emailed to the student's Gmail. Also shown below for reference.</p>
-        </div>
-        <div style={{ padding: '2rem' }}>
-          <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '1rem', padding: '1.25rem', marginBottom: '1rem' }}>
-            <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.5rem' }}>Roll Number</p>
-            <p style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e293b', margin: 0, fontFamily: 'monospace' }}>{newCredentials.roll_number}</p>
-          </div>
-          <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '1rem', padding: '1.25rem', marginBottom: '1rem' }}>
-            <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.5rem' }}>Login Email</p>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{ fontSize: '1rem', fontWeight: 700, color: '#4f46e5', margin: 0, fontFamily: 'monospace' }}>{newCredentials.email}</p>
-              <button onClick={() => { navigator.clipboard.writeText(newCredentials.email); toast.success('Email copied!'); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 4 }}><Copy size={16}/></button>
-            </div>
-          </div>
-          <div style={{ background: '#fef3c7', border: '1.5px solid #fde68a', borderRadius: '1rem', padding: '1.25rem', marginBottom: '1.5rem' }}>
-            <p style={{ fontSize: '0.65rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 0.5rem' }}>Password (save this!)</p>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p style={{ fontSize: '1.3rem', fontWeight: 800, color: '#92400e', margin: 0, fontFamily: 'monospace', letterSpacing: '0.1em' }}>{newCredentials.password}</p>
-              <button onClick={() => { navigator.clipboard.writeText(newCredentials.password); toast.success('Password copied!'); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#92400e', padding: 4 }}><Copy size={16}/></button>
-            </div>
-          </div>
-          <button
-            onClick={() => { navigator.clipboard.writeText(`Login Portal: ${window.location.origin}/login\nEmail: ${newCredentials.email}\nPassword: ${newCredentials.password}`); toast.success('All credentials copied!'); }}
-            style={{ width: '100%', background: '#4f46e5', color: '#fff', padding: '0.9rem', borderRadius: '0.875rem', fontWeight: 700, border: 'none', cursor: 'pointer', fontSize: '0.95rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-          >
-            <Copy size={18}/> Copy All Credentials
-          </button>
-          <button onClick={() => setShowCredentialsModal(false)}
-            style={{ width: '100%', background: '#f1f5f9', color: '#475569', padding: '0.9rem', borderRadius: '0.875rem', fontWeight: 700, border: 'none', cursor: 'pointer', fontSize: '0.95rem' }}>
-            Done — I've saved these
-          </button>
-          <p style={{ textAlign: 'center', fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.75rem' }}>Student portal: <strong>/login</strong> → redirects to student dashboard</p>
-        </div>
-      </div>
-    </div>,
-    document.body
-  ) : null;
+  const activeCount   = students.filter(s => s.isActive).length;
+  const alumniCount   = students.filter(s => !s.isActive).length;
 
   return (
-    <div className="space-y-8 animate-fade-in-up pb-12">
-      
-      {/* --- HEADER --- */}
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100 gap-4">
+    <div>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h2 className="text-3xl font-extrabold text-slate-800 flex items-center gap-3">
-             <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><GraduationCap size={28} /></div>
-             Student Directory
-          </h2>
-          <p className="text-slate-500 mt-1 ml-1 font-medium">
-          Active: {students.filter(s => s.isActive !== false).length} • Alumni: {students.filter(s => s.isActive === false).length}
-        </p>
+          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+            <UserPlus size={24} className="text-sky-600" /> Student Enrollment
+          </h1>
+          <p className="text-slate-500 text-sm mt-0.5">Pakistani school admission management</p>
         </div>
-        <button 
-          onClick={() => { setEditId(null); setFormData(initialForm); setShowFormModal(true); }}
-          className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold shadow-lg shadow-slate-300 hover:bg-slate-800 hover:-translate-y-1 transition-all flex items-center gap-2"
-        >
-          <UserPlus size={20}/> New Admission
+        <button onClick={openAdd}
+          className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-sky-700 transition-colors">
+          <UserPlus size={18} /> Enroll Student
         </button>
       </div>
 
-      {/* --- CONTROLS --- */}
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-         <div className="flex gap-3 flex-wrap">
-           <div className="flex bg-slate-900 p-1.5 rounded-2xl">
-             <button onClick={() => setActiveTab('active')} className={`px-5 py-2 rounded-xl font-bold text-sm transition-all ${activeTab === 'active' ? 'bg-blue-500 text-white' : 'text-slate-400 hover:text-white'}`}>Active</button>
-             <button onClick={() => setActiveTab('alumni')} className={`px-5 py-2 rounded-xl font-bold text-sm transition-all ${activeTab === 'alumni' ? 'bg-emerald-500 text-white' : 'text-slate-400 hover:text-white'}`}>Alumni 🎓</button>
-           </div>
-           <div className="flex bg-slate-200/50 p-1.5 rounded-2xl">
-             {['All', 'Morning', 'Evening', 'Weekend'].map(shift => (
-               <button key={shift} onClick={() => setFilterShift(shift)}
-                 className={`px-5 py-2 rounded-xl font-bold text-sm transition-all ${filterShift === shift ? 'bg-white text-blue-600 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
-               >{shift}</button>
-             ))}
-           </div>
-         </div>
-         <div className="relative w-full max-w-sm group">
-            <Search className="absolute left-4 top-3.5 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20}/>
-            <input className="w-full pl-12 pr-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-blue-100 transition-all font-medium"
-              placeholder="Search by Name or Roll No..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-            />
-         </div>
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm text-center">
+          <p className="text-xs text-slate-500 font-semibold uppercase">Total Students</p>
+          <p className="text-2xl font-bold text-slate-700 mt-1">{students.length}</p>
+        </div>
+        <div className="bg-sky-50 rounded-2xl p-4 border border-sky-100 shadow-sm text-center">
+          <p className="text-xs text-sky-700 font-semibold uppercase">Active</p>
+          <p className="text-2xl font-bold text-sky-700 mt-1">{activeCount}</p>
+        </div>
+        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
+          <p className="text-xs text-slate-500 font-semibold uppercase">Alumni</p>
+          <p className="text-2xl font-bold text-slate-500 mt-1">{alumniCount}</p>
+        </div>
       </div>
 
-      {/* --- STUDENTS GRID --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-         {filteredStudents.map(student => {
-            const course = student.courses[0] || {};
-            return (
-              <div key={student._id} onClick={() => openProfile(student)}
-                className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 hover:shadow-xl hover:-translate-y-1 transition-all group relative overflow-hidden cursor-pointer"
-              >
-                 <div className={`absolute top-0 right-0 w-24 h-24 -mr-8 -mt-8 rounded-full opacity-10 pointer-events-none ${course.shift === 'Morning' ? 'bg-orange-500' : 'bg-indigo-600'}`}></div>
-                 <div className="flex justify-between items-start mb-6">
-                    <div className="flex gap-4">
-                       <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center text-2xl font-bold text-slate-600 border border-slate-200 shadow-sm">
-                          {student.full_name.charAt(0)}
-                       </div>
-                       <div>
-                          <h3 className="text-lg font-bold text-slate-800 line-clamp-1">{student.full_name}</h3>
-                          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg mt-1 inline-block border border-slate-200">{student.roll_number}</span>
-                       </div>
-                    </div>
-                    <div className="flex gap-2">
-                       <button onClick={(e) => openEditModal(student, e)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"><Edit2 size={18}/></button>
-                       <button onClick={(e) => handleDelete(student._id, e)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"><Trash2 size={18}/></button>
-                    </div>
-                 </div>
-                 <div className="space-y-3 mb-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-                    <div className="flex items-center gap-3 text-sm text-slate-600">
-                       <div className="p-1.5 bg-indigo-100 text-indigo-600 rounded-lg"><GraduationCap size={16}/></div>
-                       <span className="font-semibold">{course.course_name}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-sm text-slate-600">
-                       <div className="p-1.5 bg-orange-100 text-orange-600 rounded-lg"><Clock size={16}/></div>
-                       <span className="font-medium">{course.shift} • {course.duration}</span>
-                    </div>
-                    {course.trainer_id && (
-                      <div className="flex items-center gap-3 text-sm text-slate-600">
-                         <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg"><User size={16}/></div>
-                         <span className="font-medium">{course.trainer_id?.name || trainers.find(t => t._id === course.trainer_id)?.name || 'Trainer Assigned'}</span>
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <div className="relative flex-1 min-w-[180px]">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search name, roll no, father..."
+            className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white" />
+        </div>
+        <select value={filterClass} onChange={e => setFilterClass(e.target.value)}
+          className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white">
+          <option value="">All Classes</option>
+          {classes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+        </select>
+        <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-white">
+          {['active','alumni'].map(t => (
+            <button key={t} onClick={() => setActiveTab(t)}
+              className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTab === t ? 'bg-sky-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Student Table */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-16 text-slate-400">
+          <UserPlus size={48} className="mx-auto mb-3 opacity-30" />
+          <p className="font-medium">No students found.</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-xs text-slate-500 uppercase">
+                <th className="text-left px-4 py-3 font-semibold">Student</th>
+                <th className="text-left px-4 py-3 font-semibold">Roll No.</th>
+                <th className="text-left px-4 py-3 font-semibold">Class</th>
+                <th className="text-left px-4 py-3 font-semibold">Father's Name</th>
+                <th className="text-left px-4 py-3 font-semibold">Father's Phone</th>
+                <th className="text-left px-4 py-3 font-semibold">Gender</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(s => (
+                <tr key={s._id} className="border-b border-slate-50 hover:bg-slate-50/60 transition-colors">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      {photoUrl(s) ? (
+                        <img src={photoUrl(s)} alt={s.full_name}
+                          className="w-9 h-9 rounded-full object-cover border-2 border-sky-100 flex-shrink-0" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                          {s.full_name?.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-semibold text-slate-800 leading-tight">{s.full_name}</p>
+                        {s.full_name_urdu && <p className="text-xs text-slate-400" dir="rtl">{s.full_name_urdu}</p>}
                       </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs font-bold text-slate-600 bg-slate-50/40">{s.roll_number}</td>
+                  <td className="px-4 py-3 text-slate-700">
+                    <p>{s.school_class_id?.name || '—'}{s.section && <span className="text-slate-400 text-xs"> ({s.section})</span>}</p>
+                    {s.subject_group && s.subject_group !== 'None' && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">{s.subject_group}</span>
                     )}
-                 </div>
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">{s.father_name || '—'}</td>
+                  <td className="px-4 py-3 text-slate-600">{s.father_phone || s.phone || '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${s.gender === 'female' ? 'bg-pink-100 text-pink-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {s.gender === 'female' ? 'Female' : 'Male'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-1 justify-end">
+                      <button onClick={() => setShowProfile(s)} title="View Profile"
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-sky-50 hover:text-sky-600 transition-colors">
+                        <Eye size={15}/>
+                      </button>
+                      <button onClick={() => openEdit(s)} title="Edit"
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-amber-50 hover:text-amber-600 transition-colors">
+                        <Edit2 size={15}/>
+                      </button>
+                      <button onClick={() => handleResetCredentials(s._id)} title="Reset Login"
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-green-50 hover:text-green-600 transition-colors">
+                        <Key size={15}/>
+                      </button>
+                      <button onClick={() => handleDelete(s._id)} title="Delete"
+                        className="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors">
+                        <Trash2 size={15}/>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-                 {/* Fee Balance Bar */}
-                 {course.total_fee > 0 && (() => {
-                   const paid = student.total_paid || 0;
-                   const total = course.total_fee || 0;
-                   const pct = Math.min(100, Math.round((paid / total) * 100));
-                   const balance = total - paid;
-                   return (
-                     <div className="mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                       <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                         <span>Fee Paid</span>
-                         <span className={balance > 0 ? 'text-rose-500' : 'text-emerald-600'}>
-                           {balance > 0 ? `Rs. ${balance.toLocaleString()} due` : '✓ Cleared'}
-                         </span>
-                       </div>
-                       <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                         <div
-                           className={`h-full rounded-full transition-all ${pct === 100 ? 'bg-emerald-500' : pct > 50 ? 'bg-blue-500' : 'bg-amber-500'}`}
-                           style={{ width: `${pct}%` }}
-                         />
-                       </div>
-                       <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-                         <span>Rs. {paid.toLocaleString()}</span>
-                         <span>{pct}% of Rs. {total.toLocaleString()}</span>
-                       </div>
-                     </div>
-                   );
-                 })()}
+      {/* ── Enrollment / Edit Modal ─────────────────────────────────────────── */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 md:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div>
+                <h2 className="font-bold text-slate-800 text-lg">
+                  {editId ? 'Edit Student Record' : 'New Student Enrollment'}
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">Fill all sections of the admission form</p>
               </div>
-            )
-         })}
-      </div>
+              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-700">
+                <X size={22}/>
+              </button>
+            </div>
 
-      {showFormModal && formModalPortal}
-      {showProfileModal && profileModalPortal}
-      {credentialsModalPortal}
+            {/* Tab Nav */}
+            <div className="flex gap-1 px-6 pt-3 pb-1 overflow-x-auto border-b border-slate-100 shrink-0">
+              {TABS.map(t => {
+                const Icon = t.icon;
+                const active = formTab === t.id;
+                return (
+                  <button key={t.id} onClick={() => setFormTab(t.id)}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${active ? 'bg-sky-600 text-white' : 'text-slate-500 hover:bg-slate-100'}`}>
+                    <Icon size={13}/>{t.label}
+                  </button>
+                );
+              })}
+            </div>
 
+            {/* Form Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+
+              {/* ── Personal Tab ─────────────────────────────── */}
+              {formTab === 'personal' && (
+                <div className="space-y-4">
+                  {/* Photo Upload */}
+                  <div className="flex items-center gap-5">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-24 h-28 rounded-xl border-2 border-dashed border-slate-300 overflow-hidden bg-slate-50 flex items-center justify-center">
+                        {photoPreview ? (
+                          <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="text-center text-slate-400">
+                            <Camera size={22} className="mx-auto mb-1"/>
+                            <p className="text-[10px]">Passport Photo</p>
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={() => photoRef.current?.click()}
+                        className="absolute -bottom-2 -right-2 w-7 h-7 bg-sky-600 text-white rounded-full flex items-center justify-center hover:bg-sky-700 shadow">
+                        <Camera size={13}/>
+                      </button>
+                      <input ref={photoRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto}/>
+                    </div>
+                    <div className="flex-1 space-y-3">
+                      <Input label="Full Name" required value={form.full_name}
+                        onChange={e => setField('full_name', e.target.value)}
+                        placeholder="Full name as per B-Form (English)" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input label="Date of Birth" type="date" value={form.dob}
+                      onChange={e => setField('dob', e.target.value)} />
+                    <Input label="Place of Birth" value={form.place_of_birth}
+                      onChange={e => setField('place_of_birth', e.target.value)} placeholder="City, District" />
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    <Select label="Gender" required value={form.gender} onChange={e => setField('gender', e.target.value)}>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </Select>
+                    <Select label="Religion" value={form.religion} onChange={e => setField('religion', e.target.value)}>
+                      {RELIGIONS.map(r => <option key={r}>{r}</option>)}
+                    </Select>
+                    <Select label="Blood Group" value={form.blood_group} onChange={e => setField('blood_group', e.target.value)}>
+                      {BLOOD_GROUPS.map(g => <option key={g}>{g}</option>)}
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input label="Nationality" value={form.nationality}
+                      onChange={e => setField('nationality', e.target.value)} />
+                    <Select label="Domicile (Province)" value={form.domicile} onChange={e => setField('domicile', e.target.value)}>
+                      <option value="">Select province...</option>
+                      {PROVINCES.map(p => <option key={p}>{p}</option>)}
+                    </Select>
+                  </div>
+
+                  <Input label="B-Form No. / Child CNIC" value={form.b_form_no}
+                    onChange={e => setField('b_form_no', e.target.value)} placeholder="XXXXX-XXXXXXX-X" />
+
+                  <div className="border-t border-slate-100 pt-3">
+                    <Input label="Student Email (for portal login — optional)" type="email" value={form.email}
+                      onChange={e => setField('email', e.target.value)} placeholder="student@example.com" />
+                    <p className="text-[10px] text-slate-400 mt-1">Leave blank to auto-generate a system login ID.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Family Tab ─────────────────────────────────── */}
+              {formTab === 'family' && (
+                <div className="space-y-5">
+
+                  {/* ── Sibling Detection Panel ── */}
+                  {(familySearching || familyMatches.length > 0) && (
+                    <div className={`rounded-2xl border p-4 ${familyMatches.length > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200'}`}>
+                      <div className="flex items-center gap-2 mb-3">
+                        {familySearching ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-sky-300 border-t-sky-600 rounded-full animate-spin"/>
+                            <span className="text-xs font-bold text-slate-500">Searching for family members…</span>
+                          </>
+                        ) : (
+                          <>
+                            <Users size={15} className="text-emerald-600"/>
+                            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">
+                              {familyMatches.length} Sibling{familyMatches.length !== 1 ? 's' : ''} Already Enrolled
+                            </span>
+                            <span className="ml-auto text-[10px] bg-emerald-200 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                              Same family detected
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {!familySearching && familyMatches.length > 0 && (
+                        <>
+                          {/* Sibling cards */}
+                          <div className="space-y-2 mb-3">
+                            {familyMatches.map(sib => (
+                              <label key={sib._id} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer border transition-colors ${confirmedSibIds.has(sib._id) ? 'bg-white border-emerald-300' : 'bg-slate-100 border-slate-200 opacity-60'}`}>
+                                <input type="checkbox"
+                                  checked={confirmedSibIds.has(sib._id)}
+                                  onChange={() => {
+                                    setConfirmedSibIds(prev => {
+                                      const next = new Set(prev);
+                                      next.has(sib._id) ? next.delete(sib._id) : next.add(sib._id);
+                                      setField('siblings_in_school', next.size);
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-4 h-4 accent-emerald-600 flex-shrink-0"/>
+                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                                  {sib.full_name?.charAt(0)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-bold text-slate-800 truncate">{sib.full_name}</p>
+                                  <p className="text-[10px] text-slate-500">
+                                    {sib.roll_number}
+                                    {sib.school_class_id && ` · ${sib.school_class_id.name}–${sib.school_class_id.section || 'A'}`}
+                                  </p>
+                                </div>
+                                {confirmedSibIds.has(sib._id) && (
+                                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full flex-shrink-0">Sibling ✓</span>
+                                )}
+                              </label>
+                            ))}
+                          </div>
+
+                          {/* Auto-fill button */}
+                          <button onClick={() => applyFamilyData(familyMatches[0])}
+                            className="w-full flex items-center justify-center gap-2 bg-emerald-600 text-white text-xs font-bold py-2 rounded-xl hover:bg-emerald-700 transition-colors">
+                            <CheckCircle2 size={13}/>
+                            Auto-fill family data from {familyMatches[0]?.full_name?.split(' ')[0]}'s record
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Hint when no phone entered yet */}
+                  {!familySearching && familyMatches.length === 0 && !form.father_phone && !form.mother_phone && (
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400 bg-slate-50 rounded-xl px-3 py-2 border border-dashed border-slate-200">
+                      <Phone size={12}/>
+                      Enter father's or mother's mobile below — if a sibling is already enrolled, their family data will auto-fill.
+                    </div>
+                  )}
+
+                  <div>
+                    <p className="text-xs font-bold text-sky-600 uppercase tracking-wide mb-3">Father's Information</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input label="Father's Full Name" required value={form.father_name}
+                        onChange={e => setField('father_name', e.target.value)} />
+                      <Input label="Father's CNIC" value={form.father_cnic}
+                        onChange={e => setField('father_cnic', e.target.value)} placeholder="XXXXX-XXXXXXX-X" />
+                      <Input label="Father's Mobile" value={form.father_phone}
+                        onChange={e => setField('father_phone', e.target.value)} placeholder="03XX-XXXXXXX" />
+                      <Input label="Occupation" value={form.father_occupation}
+                        onChange={e => setField('father_occupation', e.target.value)} />
+                      <Input label="Employer / Business" value={form.father_employer}
+                        onChange={e => setField('father_employer', e.target.value)} className="col-span-2" />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-4">
+                    <p className="text-xs font-bold text-pink-600 uppercase tracking-wide mb-3">Mother's Information</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input label="Mother's Full Name" value={form.mother_name}
+                        onChange={e => setField('mother_name', e.target.value)} />
+                      <Input label="Mother's CNIC" value={form.mother_cnic}
+                        onChange={e => setField('mother_cnic', e.target.value)} placeholder="XXXXX-XXXXXXX-X" />
+                      <Input label="Mother's Mobile" value={form.mother_phone}
+                        onChange={e => setField('mother_phone', e.target.value)} placeholder="03XX-XXXXXXX" />
+                      <Input label="Occupation" value={form.mother_occupation}
+                        onChange={e => setField('mother_occupation', e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-4">
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Guardian (if different from parents)</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input label="Guardian Name" value={form.guardian_name}
+                        onChange={e => setField('guardian_name', e.target.value)} />
+                      <Input label="Relation to Student" value={form.guardian_relation}
+                        onChange={e => setField('guardian_relation', e.target.value)} placeholder="Uncle, Grand parent..." />
+                      <Input label="Guardian Mobile" value={form.guardian_phone}
+                        onChange={e => setField('guardian_phone', e.target.value)} placeholder="03XX-XXXXXXX" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Academic Tab ─────────────────────────────────── */}
+              {formTab === 'academic' && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select label="Class" required value={form.school_class_id}
+                      onChange={e => setField('school_class_id', e.target.value)}>
+                      <option value="">Select class...</option>
+                      {classes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                    </Select>
+                    <Input label="Section" value={form.section} placeholder="A, B, C..."
+                      onChange={e => setField('section', e.target.value)} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select label="Academic Year" value={form.academic_year_id}
+                      onChange={e => setField('academic_year_id', e.target.value)}>
+                      <option value="">Select year...</option>
+                      {years.map(y => <option key={y._id} value={y._id}>{y.label}</option>)}
+                    </Select>
+                    <Select label="Medium of Instruction" value={form.medium}
+                      onChange={e => setField('medium', e.target.value)}>
+                      <option value="English">English</option>
+                      <option value="Urdu">Urdu</option>
+                    </Select>
+                  </div>
+
+                  {/* Subject Group */}
+                  <div className="p-4 bg-sky-50 border border-sky-100 rounded-xl space-y-2">
+                    <div className="flex items-center gap-2 mb-1">
+                      <BookOpen size={15} className="text-sky-600"/>
+                      <span className="text-xs font-bold text-sky-700 uppercase tracking-wide">Subject Group</span>
+                      <span className="text-[10px] bg-sky-200 text-sky-700 px-2 py-0.5 rounded-full font-semibold">Grade 9–12</span>
+                    </div>
+                    <Select value={form.subject_group} onChange={e => setField('subject_group', e.target.value)}>
+                      {SUBJECT_GROUPS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
+                    </Select>
+                    <p className="text-[10px] text-sky-600">Select "None" for Primary / Middle classes (Grade 1–8).</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input label="Admission Date" type="date" value={form.admission_date}
+                      onChange={e => setField('admission_date', e.target.value)} />
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Label>Siblings in This School</Label>
+                        {confirmedSibIds.size > 0 && (
+                          <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                            {confirmedSibIds.size} auto-detected
+                          </span>
+                        )}
+                      </div>
+                      <input type="number" min="0" value={form.siblings_in_school}
+                        onChange={e => setField('siblings_in_school', e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-400"/>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+                    <Bus size={18} className="text-slate-500"/>
+                    <label className="flex items-center gap-2 cursor-pointer flex-1">
+                      <input type="checkbox" checked={form.transport_required}
+                        onChange={e => setField('transport_required', e.target.checked)}
+                        className="w-4 h-4 rounded accent-sky-600"/>
+                      <span className="text-sm font-medium text-slate-700">School transport required</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Address Tab ─────────────────────────────────── */}
+              {formTab === 'address' && (
+                <div className="space-y-4">
+                  <Input label="Home Address" value={form.address}
+                    onChange={e => setField('address', e.target.value)} placeholder="House No., Street, Area..." />
+                  <Input label="City" value={form.city}
+                    onChange={e => setField('city', e.target.value)} />
+
+                  <div className="border-t border-slate-100 pt-4">
+                    <p className="text-xs font-bold text-red-600 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+                      <AlertCircle size={13}/> Emergency Contact
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Input label="Contact Name" value={form.emergency_contact_name}
+                        onChange={e => setField('emergency_contact_name', e.target.value)} />
+                      <Input label="Relation" value={form.emergency_contact_relation}
+                        onChange={e => setField('emergency_contact_relation', e.target.value)} placeholder="Uncle, Aunt..." />
+                      <Input label="Mobile Number" value={form.emergency_contact_phone}
+                        onChange={e => setField('emergency_contact_phone', e.target.value)} placeholder="03XX-XXXXXXX" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Previous School Tab ─────────────────────────── */}
+              {formTab === 'previous' && (
+                <div className="space-y-4">
+                  <p className="text-xs text-slate-400">Fill this section only if the student is transferring from another school.</p>
+                  <Input label="Previous School Name" value={form.previous_school}
+                    onChange={e => setField('previous_school', e.target.value)} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input label="Last Class Attended" value={form.previous_class}
+                      onChange={e => setField('previous_class', e.target.value)} placeholder="e.g. Grade 5" />
+                    <Input label="School Leaving Certificate No." value={form.leaving_certificate_no}
+                      onChange={e => setField('leaving_certificate_no', e.target.value)} />
+                  </div>
+                  <div>
+                    <Label>Reason for Leaving</Label>
+                    <textarea value={form.transfer_reason} rows={3}
+                      onChange={e => setField('transfer_reason', e.target.value)}
+                      placeholder="Migration, distance, facilities..."
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none bg-white"/>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Medical Tab ─────────────────────────────────── */}
+              {formTab === 'medical' && (
+                <div className="space-y-4">
+                  <div>
+                    <Label>Any Physical Disability / Special Needs</Label>
+                    <textarea value={form.disability} rows={3}
+                      onChange={e => setField('disability', e.target.value)}
+                      placeholder="Describe if any — visual, hearing, mobility, learning disability..."
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none bg-white"/>
+                  </div>
+                  <div>
+                    <Label>Known Allergies / Medical Conditions</Label>
+                    <textarea value={form.allergies} rows={3}
+                      onChange={e => setField('allergies', e.target.value)}
+                      placeholder="Food allergies, medications, chronic conditions..."
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none bg-white"/>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Fees Tab ─────────────────────────────────────── */}
+              {formTab === 'fees' && (
+                <div className="space-y-4">
+                  {/* Header */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-700">First-Month Fee Invoice</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {form.school_class_id && form.academic_year_id
+                          ? 'Select fees to apply. An invoice will be created on enrollment.'
+                          : 'Please select a Class and Academic Year in the Academic tab first.'}
+                      </p>
+                    </div>
+                    {form.school_class_id && form.academic_year_id && feeStructure === undefined && !feeLoading && (
+                      <button onClick={() => fetchFeeStructure(form.school_class_id, form.academic_year_id)}
+                        className="flex items-center gap-1.5 text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200 px-3 py-1.5 rounded-xl hover:bg-sky-100 transition-colors">
+                        <RefreshCw size={12}/> Load Fee Structure
+                      </button>
+                    )}
+                  </div>
+
+                  {/* No class/year selected */}
+                  {(!form.school_class_id || !form.academic_year_id) && (
+                    <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                      <Receipt size={36} className="text-slate-300 mx-auto mb-3"/>
+                      <p className="text-slate-400 text-sm font-medium">No class or academic year selected</p>
+                      <button onClick={() => setFormTab('academic')}
+                        className="mt-2 text-xs font-bold text-sky-600 hover:underline">
+                        Go to Academic tab →
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Loading */}
+                  {feeLoading && (
+                    <div className="flex items-center justify-center py-10 gap-3 text-sky-600">
+                      <div className="w-5 h-5 border-2 border-sky-200 border-t-sky-600 rounded-full animate-spin"/>
+                      <span className="text-sm font-medium">Loading fee structure…</span>
+                    </div>
+                  )}
+
+                  {/* No fee structure defined (null = loaded but nothing found) */}
+                  {!feeLoading && form.school_class_id && form.academic_year_id && feeStructure === null && (
+                    <div className="text-center py-10 bg-amber-50 rounded-2xl border border-dashed border-amber-200">
+                      <Tag size={32} className="text-amber-400 mx-auto mb-3"/>
+                      <p className="text-amber-700 text-sm font-semibold">No fee structure set for this class</p>
+                      <p className="text-amber-500 text-xs mt-1">Set it up in <strong>Fee Structure</strong> page first.</p>
+                    </div>
+                  )}
+
+                  {/* Fee items */}
+                  {feeStructure?.items?.length > 0 && (() => {
+                    const rawTotal  = feeStructure.items.reduce((s, it) => s + it.amount, 0);
+                    const discount  = Number(feeDiscount) || 0;
+                    const netTotal  = Math.max(0, rawTotal - discount);
+                    const selTotal  = feeStructure.items
+                      .filter(it => selectedFees[it._id])
+                      .reduce((s, it) => s + it.amount, 0);
+                    const selNet    = Math.max(0, selTotal - discount);
+                    const paidNow   = Math.min(Number(feePaid) || 0, selNet);
+                    const balance   = selNet - paidNow;
+
+                    return (
+                      <div className="space-y-4">
+                        {/* Fee items checklist */}
+                        <div className="border border-slate-200 rounded-2xl overflow-hidden">
+                          <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fee Heads</span>
+                            <button onClick={() => {
+                              const allSel = feeStructure.items.every(it => selectedFees[it._id]);
+                              const next = {};
+                              feeStructure.items.forEach(it => { next[it._id] = !allSel; });
+                              setSelectedFees(next);
+                            }} className="text-[10px] font-bold text-sky-600 hover:text-sky-800">
+                              {feeStructure.items.every(it => selectedFees[it._id]) ? 'Deselect All' : 'Select All'}
+                            </button>
+                          </div>
+                          {feeStructure.items.map((item, i) => (
+                            <label key={item._id}
+                              className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${i < feeStructure.items.length - 1 ? 'border-b border-slate-100' : ''} ${selectedFees[item._id] ? 'bg-sky-50' : 'hover:bg-slate-50'}`}>
+                              <div onClick={() => setSelectedFees(p => ({ ...p, [item._id]: !p[item._id] }))}
+                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${selectedFees[item._id] ? 'bg-sky-600 border-sky-600' : 'border-slate-300'}`}>
+                                {selectedFees[item._id] && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5 3.5-4" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className={`text-sm font-semibold ${selectedFees[item._id] ? 'text-slate-800' : 'text-slate-500'}`}>
+                                  {item.fee_head_name}
+                                </span>
+                              </div>
+                              <span className={`text-sm font-bold tabular-nums ${selectedFees[item._id] ? 'text-sky-700' : 'text-slate-400 line-through'}`}>
+                                Rs. {item.amount.toLocaleString()}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+
+                        {/* Discount + Due day info */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label>Discount (Rs.)</Label>
+                            <div className="relative">
+                              <BadgePercent size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
+                              <input type="number" min="0" value={feeDiscount}
+                                onChange={e => setFeeDiscount(e.target.value)}
+                                placeholder="0"
+                                className="w-full pl-8 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white"/>
+                            </div>
+                          </div>
+                          <div>
+                            <Label>Payment Method</Label>
+                            <select value={feePayMethod} onChange={e => setFeePayMethod(e.target.value)}
+                              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white">
+                              {['cash','bank_transfer','cheque','online'].map(m => (
+                                <option key={m} value={m}>{m.replace('_',' ').replace(/\b\w/g,c=>c.toUpperCase())}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Amount paid now */}
+                        <div>
+                          <Label>Amount Paid Now (Rs.) — leave 0 for unpaid</Label>
+                          <input type="number" min="0" max={selNet} value={feePaid}
+                            onChange={e => setFeePaid(e.target.value)}
+                            placeholder="0"
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white"/>
+                        </div>
+
+                        {/* Notes */}
+                        <div>
+                          <Label>Notes (optional)</Label>
+                          <input value={feeNotes} onChange={e => setFeeNotes(e.target.value)}
+                            placeholder="Scholarship, sibling discount, etc."
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white"/>
+                        </div>
+
+                        {/* Summary box */}
+                        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 space-y-2">
+                          <p className="text-xs font-bold text-sky-700 uppercase tracking-widest mb-3">Invoice Summary</p>
+                          {feeStructure.items.filter(it => selectedFees[it._id]).map(it => (
+                            <div key={it._id} className="flex justify-between text-sm text-slate-700">
+                              <span>{it.fee_head_name}</span>
+                              <span className="font-semibold tabular-nums">Rs. {it.amount.toLocaleString()}</span>
+                            </div>
+                          ))}
+                          {discount > 0 && (
+                            <div className="flex justify-between text-sm text-emerald-700 border-t border-sky-200 pt-2 mt-1">
+                              <span>Discount</span>
+                              <span className="font-semibold tabular-nums">− Rs. {discount.toLocaleString()}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold text-sky-900 border-t border-sky-200 pt-2 mt-1 text-base">
+                            <span>Total Due</span>
+                            <span className="tabular-nums">Rs. {selNet.toLocaleString()}</span>
+                          </div>
+                          {paidNow > 0 && (
+                            <div className="flex justify-between text-sm text-emerald-700">
+                              <span>Paid Now</span>
+                              <span className="font-semibold tabular-nums">Rs. {paidNow.toLocaleString()}</span>
+                            </div>
+                          )}
+                          <div className={`flex justify-between font-bold text-base pt-1 ${balance > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                            <span>Balance</span>
+                            <span className="tabular-nums">Rs. {balance.toLocaleString()}</span>
+                          </div>
+                          {balance === 0 && selNet > 0 && (
+                            <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-bold mt-1">
+                              <CheckCircle2 size={13}/> Fully Paid
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 shrink-0">
+              <div className="flex gap-2">
+                {TABS.indexOf(TABS.find(t => t.id === formTab)) > 0 && (
+                  <button onClick={() => setFormTab(TABS[TABS.indexOf(TABS.find(t => t.id === formTab)) - 1].id)}
+                    className="flex items-center gap-1 px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">
+                    <ChevronLeft size={15}/> Prev
+                  </button>
+                )}
+                {TABS.indexOf(TABS.find(t => t.id === formTab)) < TABS.length - 1 && (
+                  <button onClick={() => setFormTab(TABS[TABS.indexOf(TABS.find(t => t.id === formTab)) + 1].id)}
+                    className="flex items-center gap-1 px-3 py-2 border border-slate-200 rounded-xl text-sm text-slate-600 hover:bg-slate-50">
+                    Next <ChevronRight size={15}/>
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setShowForm(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 text-sm font-semibold hover:bg-slate-50">
+                  Cancel
+                </button>
+                <button onClick={handleSubmit} disabled={submitting}
+                  className="px-5 py-2 bg-sky-600 text-white rounded-xl font-semibold text-sm hover:bg-sky-700 disabled:opacity-50 flex items-center gap-2">
+                  {submitting ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"/> : <CheckCircle2 size={15}/>}
+                  {editId ? 'Save Changes' : 'Enroll Student'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Credentials Modal ───────────────────────────────────────────── */}
+      {credentials && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="text-center">
+              <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <CheckCircle2 size={28} className="text-green-600"/>
+              </div>
+              <h3 className="font-bold text-slate-800 text-lg">Student Enrolled!</h3>
+              <p className="text-slate-500 text-sm mt-1">Portal login credentials generated</p>
+            </div>
+
+            <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+              <div>
+                <p className="text-xs text-slate-500 font-semibold uppercase">Roll Number</p>
+                <p className="font-mono font-bold text-slate-800 mt-0.5">{credentials.roll_number}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-semibold uppercase">Login Email</p>
+                <p className="font-mono text-sm text-slate-700 mt-0.5 break-all">{credentials.email}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-semibold uppercase">Password</p>
+                <p className="font-mono font-bold text-slate-800 mt-0.5 tracking-widest">{credentials.password}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg p-3 text-center">
+              Save this password now — it will not be shown again.
+            </p>
+
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={() => {
+                  navigator.clipboard.writeText(`Roll No: ${credentials.roll_number}\nEmail: ${credentials.email}\nPassword: ${credentials.password}`);
+                  toast.success('Copied to clipboard');
+                }}
+                className="flex-1 border border-slate-200 py-2.5 rounded-xl text-slate-600 font-semibold text-sm hover:bg-slate-50 flex items-center justify-center gap-2">
+                <Copy size={14}/> Copy
+              </button>
+              {printSlip && (
+                <button onClick={() => { setCredentials(null); }}
+                  className="flex-1 border border-sky-200 bg-sky-50 text-sky-700 py-2.5 rounded-xl font-semibold text-sm hover:bg-sky-100 flex items-center justify-center gap-2">
+                  <Printer size={14}/> View & Print Slip
+                </button>
+              )}
+              <button onClick={() => { setCredentials(null); setPrintSlip(null); }}
+                className="flex-1 bg-sky-600 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-sky-700">
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Print Admission Slip Modal ──────────────────────────────────── */}
+      {printSlip && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            {/* Modal toolbar */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <FileText size={18} className="text-sky-600"/>
+                <h3 className="font-bold text-slate-800">Admission Slip</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => window.print()}
+                  className="flex items-center gap-2 bg-sky-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-sky-700 transition-colors">
+                  <Printer size={15}/> Print
+                </button>
+                <button onClick={() => setPrintSlip(null)} className="text-slate-400 hover:text-slate-700 ml-1">
+                  <X size={20}/>
+                </button>
+              </div>
+            </div>
+
+            {/* Slip content — this is what gets printed */}
+            <div ref={printRef} id="admission-slip" className="flex-1 overflow-y-auto p-6">
+              <style>{`
+                @media print {
+                  body * { visibility: hidden !important; }
+                  #admission-slip, #admission-slip * { visibility: visible !important; }
+                  #admission-slip { position: fixed; top: 0; left: 0; width: 100%; padding: 24px; }
+                }
+              `}</style>
+
+              {/* School header */}
+              <div className="flex items-center gap-4 border-b-2 border-sky-600 pb-4 mb-5">
+                <img src={localLogo} alt="logo" className="w-16 h-16 rounded-xl object-cover border border-slate-200 flex-shrink-0"/>
+                <div className="flex-1">
+                  <h1 className="text-xl font-extrabold text-slate-800 leading-tight">The Best Way Public School</h1>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">Excellence in Education</p>
+                  <p className="text-xs text-slate-400">{printSlip.date}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Admission Slip</p>
+                  <p className="font-mono font-bold text-sky-700 text-sm mt-0.5">{printSlip.student?.roll_number}</p>
+                  <span className="inline-block mt-1 bg-sky-100 text-sky-700 text-[10px] font-bold px-2 py-0.5 rounded-full">NEW ENROLLMENT</span>
+                </div>
+              </div>
+
+              {/* Two column layout */}
+              <div className="grid grid-cols-2 gap-6 mb-5">
+                {/* Student info */}
+                <div>
+                  <p className="text-[10px] font-bold text-sky-600 uppercase tracking-widest mb-2">Student Information</p>
+                  <table className="w-full text-xs">
+                    <tbody className="divide-y divide-slate-100">
+                      {[
+                        ['Full Name',    printSlip.student?.full_name],
+                        ['Roll Number',  printSlip.student?.roll_number],
+                        ['Class',        printSlip.className],
+                        ['Session',      printSlip.yearLabel],
+                        ['Gender',       printSlip.student?.gender === 'female' ? 'Female' : 'Male'],
+                        ['Date of Birth',printSlip.student?.dob ? new Date(printSlip.student.dob).toLocaleDateString('en-PK',{day:'2-digit',month:'short',year:'numeric'}) : '—'],
+                      ].map(([l,v]) => (
+                        <tr key={l}>
+                          <td className="py-1.5 pr-2 font-semibold text-slate-500 whitespace-nowrap w-28">{l}</td>
+                          <td className="py-1.5 font-bold text-slate-800">{v || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Father/contact info */}
+                <div>
+                  <p className="text-[10px] font-bold text-sky-600 uppercase tracking-widest mb-2">Parent / Guardian</p>
+                  <table className="w-full text-xs">
+                    <tbody className="divide-y divide-slate-100">
+                      {[
+                        ["Father's Name",  printSlip.student?.father_name],
+                        ["Father's Mobile", printSlip.student?.father_phone],
+                        ["Mother's Name",  printSlip.student?.mother_name],
+                        ["Address",        printSlip.student?.address],
+                        ["City",           printSlip.student?.city],
+                      ].map(([l,v]) => (
+                        <tr key={l}>
+                          <td className="py-1.5 pr-2 font-semibold text-slate-500 whitespace-nowrap w-28">{l}</td>
+                          <td className="py-1.5 font-bold text-slate-800">{v || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Fee breakdown */}
+              {printSlip.feeItems?.length > 0 && (
+                <div className="mb-5">
+                  <p className="text-[10px] font-bold text-sky-600 uppercase tracking-widest mb-2">Fee Invoice</p>
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 uppercase text-[9px] tracking-wider">
+                          <th className="text-left px-3 py-2 font-bold">#</th>
+                          <th className="text-left px-3 py-2 font-bold">Fee Head</th>
+                          <th className="text-right px-3 py-2 font-bold">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {printSlip.feeItems.map((it, i) => (
+                          <tr key={it._id || i}>
+                            <td className="px-3 py-2 text-slate-400">{i + 1}</td>
+                            <td className="px-3 py-2 font-semibold text-slate-700">{it.fee_head_name}</td>
+                            <td className="px-3 py-2 text-right font-semibold tabular-nums">Rs. {it.amount.toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-slate-50">
+                        {printSlip.discount > 0 && (
+                          <tr>
+                            <td colSpan="2" className="px-3 py-1.5 text-right text-slate-600 font-semibold text-xs">Discount</td>
+                            <td className="px-3 py-1.5 text-right font-semibold text-emerald-700 tabular-nums">− Rs. {printSlip.discount.toLocaleString()}</td>
+                          </tr>
+                        )}
+                        <tr>
+                          <td colSpan="2" className="px-3 py-2 text-right font-bold text-slate-800">Total Due</td>
+                          <td className="px-3 py-2 text-right font-extrabold text-sky-700 tabular-nums">Rs. {printSlip.totalAmount.toLocaleString()}</td>
+                        </tr>
+                        {printSlip.paidNow > 0 && (
+                          <tr>
+                            <td colSpan="2" className="px-3 py-1.5 text-right font-semibold text-emerald-700">Paid ({printSlip.payMethod.replace('_',' ')})</td>
+                            <td className="px-3 py-1.5 text-right font-bold text-emerald-700 tabular-nums">Rs. {printSlip.paidNow.toLocaleString()}</td>
+                          </tr>
+                        )}
+                        <tr className="border-t-2 border-slate-300">
+                          <td colSpan="2" className="px-3 py-2 text-right font-bold text-slate-800">Balance</td>
+                          <td className={`px-3 py-2 text-right font-extrabold tabular-nums ${(printSlip.totalAmount - printSlip.paidNow) > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            Rs. {Math.max(0, printSlip.totalAmount - printSlip.paidNow).toLocaleString()}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                  {printSlip.notes && (
+                    <p className="text-xs text-slate-500 mt-2 italic">Note: {printSlip.notes}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Portal credentials */}
+              {printSlip.credentials && (
+                <div className="mb-5 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-2">Student Portal Login Credentials</p>
+                  <div className="grid grid-cols-3 gap-4 text-xs">
+                    <div>
+                      <p className="text-slate-500 font-semibold">Roll Number</p>
+                      <p className="font-mono font-bold text-slate-800 mt-0.5">{printSlip.credentials.roll_number}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500 font-semibold">Email / Login ID</p>
+                      <p className="font-mono text-slate-700 mt-0.5 break-all">{printSlip.credentials.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500 font-semibold">Password</p>
+                      <p className="font-mono font-bold text-slate-800 mt-0.5 tracking-widest">{printSlip.credentials.password}</p>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-amber-600 mt-2 font-semibold">⚠ Keep this confidential — password will not be shown again.</p>
+                </div>
+              )}
+
+              {/* Signature lines */}
+              <div className="grid grid-cols-3 gap-6 mt-8 pt-6 border-t border-slate-200">
+                {['Prepared By', "Parent's Signature", 'Principal'].map(label => (
+                  <div key={label} className="text-center">
+                    <div className="border-b border-slate-400 mb-2 h-8"/>
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-center text-[9px] text-slate-300 mt-6">
+                The Best Way Public School · {printSlip.date} · Computer-generated slip
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Student Profile Modal ───────────────────────────────────────── */}
+      {showProfile && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 md:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            {/* Profile Header */}
+            <div className="relative bg-gradient-to-r from-sky-600 to-sky-700 rounded-t-2xl p-6 text-white">
+              <button onClick={() => setShowProfile(null)}
+                className="absolute top-4 right-4 text-white/70 hover:text-white">
+                <X size={20}/>
+              </button>
+              <div className="flex items-center gap-4">
+                {photoUrl(showProfile) ? (
+                  <img src={photoUrl(showProfile)} alt={showProfile.full_name}
+                    className="w-20 h-24 rounded-xl object-cover border-2 border-white/30 flex-shrink-0" />
+                ) : (
+                  <div className="w-20 h-24 rounded-xl bg-white/20 flex items-center justify-center text-3xl font-bold flex-shrink-0">
+                    {showProfile.full_name?.charAt(0)}
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-xl font-bold">{showProfile.full_name}</h2>
+                  {showProfile.full_name_urdu && <p className="text-sky-200 text-sm" dir="rtl">{showProfile.full_name_urdu}</p>}
+                  <p className="text-sky-200 font-mono text-sm mt-1">{showProfile.roll_number}</p>
+                  <div className="flex gap-2 mt-2 flex-wrap">
+                    {showProfile.school_class_id?.name && (
+                      <span className="bg-white/20 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {showProfile.school_class_id.name} {showProfile.section && `— ${showProfile.section}`}
+                      </span>
+                    )}
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${showProfile.gender === 'female' ? 'bg-pink-400/30' : 'bg-blue-400/30'}`}>
+                      {showProfile.gender === 'female' ? 'Female' : 'Male'}
+                    </span>
+                    <span className="bg-white/20 text-xs font-semibold px-2 py-0.5 rounded-full">
+                      {showProfile.blood_group}
+                    </span>
+                    {showProfile.subject_group && showProfile.subject_group !== 'None' && (
+                      <span className="bg-amber-400/30 text-amber-100 text-xs font-semibold px-2 py-0.5 rounded-full">
+                        {showProfile.subject_group}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Profile Details */}
+            <div className="p-6 space-y-5">
+              {/* Personal */}
+              <Section title="Personal Information">
+                <Row label="Date of Birth" value={showProfile.dob ? new Date(showProfile.dob).toLocaleDateString('en-PK', { day: 'numeric', month: 'long', year: 'numeric'}) : '—'} />
+                <Row label="Place of Birth" value={showProfile.place_of_birth} />
+                <Row label="Religion" value={showProfile.religion} />
+                <Row label="Nationality" value={showProfile.nationality} />
+                <Row label="Domicile" value={showProfile.domicile} />
+                <Row label="B-Form No." value={showProfile.b_form_no} />
+              </Section>
+
+              {/* Family */}
+              <Section title="Family Information">
+                <Row label="Father's Name" value={showProfile.father_name} />
+                <Row label="Father's CNIC" value={showProfile.father_cnic} />
+                <Row label="Father's Phone" value={showProfile.father_phone} />
+                <Row label="Father's Occupation" value={`${showProfile.father_occupation || '—'} ${showProfile.father_employer ? `(${showProfile.father_employer})` : ''}`} />
+                <Row label="Mother's Name" value={showProfile.mother_name} />
+                <Row label="Mother's Phone" value={showProfile.mother_phone} />
+              </Section>
+
+              {/* Academic */}
+              <Section title="Academic Details">
+                <Row label="Class" value={`${showProfile.school_class_id?.name || '—'} ${showProfile.section ? `(Section ${showProfile.section})` : ''}`} />
+                <Row label="Academic Year" value={showProfile.academic_year_id?.label} />
+                <Row label="Medium" value={showProfile.medium} />
+                {showProfile.subject_group && showProfile.subject_group !== 'None' && (
+                  <Row label="Subject Group" value={showProfile.subject_group} />
+                )}
+                <Row label="Admission Date" value={showProfile.admission_date ? new Date(showProfile.admission_date).toLocaleDateString('en-PK', { day: 'numeric', month: 'long', year: 'numeric'}) : '—'} />
+                <Row label="Transport" value={showProfile.transport_required ? 'Required' : 'Not Required'} />
+              </Section>
+
+              {/* Address */}
+              {(showProfile.address || showProfile.city) && (
+                <Section title="Address">
+                  <Row label="Home Address" value={showProfile.address} />
+                  <Row label="City" value={showProfile.city} />
+                </Section>
+              )}
+
+              {/* Emergency */}
+              {showProfile.emergency_contact_name && (
+                <Section title="Emergency Contact">
+                  <Row label="Name" value={showProfile.emergency_contact_name} />
+                  <Row label="Phone" value={showProfile.emergency_contact_phone} />
+                  <Row label="Relation" value={showProfile.emergency_contact_relation} />
+                </Section>
+              )}
+
+              {/* Previous School */}
+              {showProfile.previous_school && (
+                <Section title="Previous School">
+                  <Row label="School" value={showProfile.previous_school} />
+                  <Row label="Last Class" value={showProfile.previous_class} />
+                  <Row label="Leaving Cert No." value={showProfile.leaving_certificate_no} />
+                </Section>
+              )}
+
+              {/* Medical */}
+              {(showProfile.disability || showProfile.allergies) && (
+                <Section title="Medical / Special Needs">
+                  {showProfile.disability && <Row label="Disability" value={showProfile.disability} />}
+                  {showProfile.allergies && <Row label="Allergies" value={showProfile.allergies} />}
+                </Section>
+              )}
+            </div>
+
+            <div className="px-6 pb-5 flex gap-3">
+              <button onClick={() => { setShowProfile(null); openEdit(showProfile); }}
+                className="flex-1 border border-slate-200 py-2.5 rounded-xl text-slate-600 font-semibold text-sm hover:bg-slate-50 flex items-center justify-center gap-2">
+                <Edit2 size={14}/> Edit Record
+              </button>
+              <button onClick={() => setShowProfile(null)}
+                className="flex-1 bg-sky-600 text-white py-2.5 rounded-xl font-semibold text-sm hover:bg-sky-700">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
+}
 
-export default Students;
+function Section({ title, children }) {
+  return (
+    <div>
+      <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">{title}</p>
+      <div className="bg-slate-50 rounded-xl divide-y divide-slate-100">{children}</div>
+    </div>
+  );
+}
+
+function Row({ label, value }) {
+  if (!value || value === '—') return null;
+  return (
+    <div className="flex justify-between px-4 py-2.5 text-sm">
+      <span className="text-slate-500 flex-shrink-0 mr-4">{label}</span>
+      <span className="font-semibold text-slate-800 text-right">{value}</span>
+    </div>
+  );
+}

@@ -5,8 +5,10 @@ import { generateCertificate } from '../../utils/generateCertificate';
 import {
   User, Phone, Mail, BookOpen, Calendar, CreditCard,
   Award, CheckCircle, AlertTriangle, TrendingUp,
-  Users, Clock, Star, Download, Layers
+  Users, Clock, Star, Download, Layers, MapPin, Heart,
 } from 'lucide-react';
+
+const API_BASE = '';
 
 const SHIFT_COLORS = {
   Morning:   { bg: '#fef3c7', color: '#92400e' },
@@ -86,8 +88,10 @@ const StudentProfile = () => {
           style={{ background: 'radial-gradient(circle, white, transparent)', transform: 'translate(-30%, 30%)' }} />
 
         <div className="relative p-8 flex flex-col sm:flex-row items-center gap-6">
-          <div className="w-24 h-24 rounded-2xl bg-white/20 backdrop-blur-sm border-2 border-white/30 flex items-center justify-center text-3xl font-bold text-white shadow-xl">
-            {initials}
+          <div className="w-24 h-28 rounded-2xl bg-white/20 backdrop-blur-sm border-2 border-white/30 overflow-hidden flex items-center justify-center text-3xl font-bold text-white shadow-xl flex-shrink-0">
+            {profile.photo
+              ? <img src={`${API_BASE}/uploads/students/${profile.photo}`} alt={profile.full_name} className="w-full h-full object-cover"/>
+              : initials}
           </div>
 
           <div className="flex-1 text-center sm:text-left">
@@ -97,8 +101,15 @@ const StudentProfile = () => {
                   <Star size={10}/> Alumni
                 </span>
               )}
-              {course.course_name && (
-                <span className="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full">{course.course_name}</span>
+              {profile.school_class_id?.name && (
+                <span className="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full">
+                  {profile.school_class_id.name}{profile.section ? ` — ${profile.section}` : ''}
+                </span>
+              )}
+              {profile.subject_group && profile.subject_group !== 'None' && (
+                <span className="bg-amber-400/30 text-amber-100 text-xs px-2 py-0.5 rounded-full font-semibold">
+                  {profile.subject_group}
+                </span>
               )}
             </div>
             <h1 className="text-3xl font-bold text-white mb-1">{profile.full_name}</h1>
@@ -152,10 +163,13 @@ const StudentProfile = () => {
           <div className="space-y-1">
             {[
               { label: 'Full Name', value: profile.full_name, icon: <User size={15}/> },
-              { label: 'Phone', value: profile.phone || '—', icon: <Phone size={15}/> },
+              { label: 'Date of Birth', value: profile.dob ? new Date(profile.dob).toLocaleDateString('en-PK', { day:'numeric', month:'long', year:'numeric'}) : '—', icon: <Calendar size={15}/> },
+              { label: 'Blood Group', value: profile.blood_group || '—', icon: <Heart size={15}/> },
+              { label: 'Father\'s Name', value: profile.father_name || '—', icon: <Users size={15}/> },
+              { label: 'Father\'s Phone', value: profile.father_phone || profile.phone || '—', icon: <Phone size={15}/> },
+              { label: 'Mother\'s Name', value: profile.mother_name || '—', icon: <Users size={15}/> },
               { label: 'Email', value: profile.email || '—', icon: <Mail size={15}/> },
-              { label: 'Father / Guardian', value: profile.father_name || '—', icon: <Users size={15}/> },
-              { label: 'Guardian Phone', value: profile.guardian_phone || '—', icon: <Phone size={15}/> },
+              { label: 'Address', value: [profile.address, profile.city].filter(Boolean).join(', ') || '—', icon: <MapPin size={15}/> },
               { label: 'Admission Date', value: admissionDate, icon: <Calendar size={15}/> },
             ].map(({ label, value, icon }) => (
               <div key={label} className="flex items-start gap-3 py-2.5 border-b border-slate-50 last:border-0">
