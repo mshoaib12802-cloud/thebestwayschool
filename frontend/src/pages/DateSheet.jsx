@@ -248,7 +248,7 @@ export default function DateSheet() {
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 160);
     doc.text('Students are advised to report 15 minutes before the exam. Bring your Student ID Card.', pageW / 2, finalY + 6, { align: 'center' });
-    doc.text('Inflorescence Advance Skills — Excellence in Advanced Skills', pageW / 2, finalY + 12, { align: 'center' });
+    doc.text('The Best Way Public School — Learn, Grow & Succeed', pageW / 2, finalY + 12, { align: 'center' });
 
     doc.save(`DateSheet_${sheet.course_name}_${sheet.title}.pdf`);
   };

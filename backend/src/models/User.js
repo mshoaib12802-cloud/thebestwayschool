@@ -7,7 +7,7 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: {
     type: String,
-    enum: ['admin', 'teacher', 'student', 'clerk', 'office_boy', 'client'],
+    enum: ['admin', 'teacher', 'student', 'clerk', 'office_boy', 'client', 'parent'],
     default: 'student'
   },
   salary_type: { type: String, default: 'monthly' },
@@ -17,6 +17,7 @@ const UserSchema = new mongoose.Schema({
   joining_date: { type: Date, default: Date.now },
   student_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', default: null },
   client_id:  { type: mongoose.Schema.Types.ObjectId, ref: 'Client',  default: null },
+  student_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
   assigned_courses: [{ type: String }]
 }, { timestamps: true });
 

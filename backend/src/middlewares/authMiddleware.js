@@ -58,4 +58,10 @@ const staffOrTeacher = (req, res, next) => {
   return res.status(403).json({ message: 'Access denied' });
 };
 
-module.exports = { protect, adminOnly, staffOnly, teacherOnly, studentOnly, staffOrTeacher };
+// Parents only
+const parentOnly = (req, res, next) => {
+  if (req.user?.role === 'parent') return next();
+  return res.status(403).json({ message: 'Access denied — parents only' });
+};
+
+module.exports = { protect, adminOnly, staffOnly, teacherOnly, studentOnly, staffOrTeacher, parentOnly };

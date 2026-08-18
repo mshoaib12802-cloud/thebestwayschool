@@ -80,7 +80,7 @@ export default function StudentDashboard() {
   const todayName    = DAYS[new Date().getDay()];
   const todayClasses = timetable
     .filter(e => e.day_of_week === todayName && e.subject_id)
-    .sort((a, b) => (a.period_id?.sort_order || 0) - (b.period_id?.sort_order || 0));
+    .sort((a, b) => (a.period_id?.order || 0) - (b.period_id?.order || 0));
 
   const balance          = fees?.summary?.balance || 0;
   const passCount        = results.filter(r => r.grade !== 'F').length;

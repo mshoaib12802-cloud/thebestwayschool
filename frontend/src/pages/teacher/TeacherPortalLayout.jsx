@@ -3,29 +3,45 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
 import FloatingChat from '../../components/FloatingChat';
-import logo from '../../assets/logo.jpeg';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
+import logo from '../../assets/logo2.jpeg';
 import {
   LayoutDashboard, BookOpen, Award,
-  CalendarCheck, LogOut, UserCircle, Users, CalendarDays, Zap, ChevronRight, PlayCircle
+  CalendarCheck, LogOut, UserCircle, Users, CalendarDays, Zap, ChevronRight, PlayCircle,
+  ClipboardList, CalendarOff, Bell, UserCheck, CalendarClock, Banknote, ClipboardCheck,
+  BookMarked, GraduationCap, BookOpenCheck,
 } from 'lucide-react';
 
 const TeacherPortalLayout = () => {
   const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const navRef = useRef(null);
+  usePushNotifications(user);
   const [showRightFade, setShowRightFade] = useState(true);
   const [showHint, setShowHint] = useState(false);
 
   const menuItems = [
-    { path: '/teacher-portal/dashboard',  name: 'Dashboard',      icon: <LayoutDashboard size={20}/> },
-    { path: '/teacher-portal/courses',    name: 'My Courses',     icon: <BookOpen size={20}/> },
-    { path: '/teacher-portal/lms',        name: 'LMS Progress',   icon: <PlayCircle size={20}/> },
-    { path: '/teacher-portal/students',   name: 'My Students',    icon: <Users size={20}/> },
-    { path: '/teacher-portal/exams',      name: 'Exams & Results',icon: <Award size={20}/> },
-    { path: '/teacher-portal/live-exams', name: 'Live Exams',     icon: <Zap size={20}/> },
-    { path: '/teacher-portal/attendance', name: 'Attendance',     icon: <CalendarCheck size={20}/> },
-    { path: '/teacher-portal/timetable',  name: 'Timetable',      icon: <CalendarDays size={20}/> },
-    { path: '/teacher-portal/profile',    name: 'My Profile',     icon: <UserCircle size={20}/> },
+    { path: '/teacher-portal/dashboard',       name: 'Dashboard',       icon: <LayoutDashboard size={20}/> },
+    { path: '/teacher-portal/courses',         name: 'My Courses',      icon: <BookOpen size={20}/> },
+    { path: '/teacher-portal/lms',             name: 'LMS Progress',    icon: <PlayCircle size={20}/> },
+    { path: '/teacher-portal/school-lms',      name: 'School Lessons',  icon: <PlayCircle size={20}/> },
+    { path: '/teacher-portal/students',        name: 'My Students',     icon: <Users size={20}/> },
+    { path: '/teacher-portal/class-attendance',name: 'Class Attendance',icon: <UserCheck size={20}/> },
+    { path: '/teacher-portal/assignments',     name: 'Assignments',     icon: <ClipboardCheck size={20}/> },
+    { path: '/teacher-portal/marks-entry',     name: 'Marks Entry',     icon: <ClipboardList size={20}/> },
+    { path: '/teacher-portal/exams',           name: 'Exams & Results', icon: <Award size={20}/> },
+    { path: '/teacher-portal/live-exams',      name: 'Live Exams',      icon: <Zap size={20}/> },
+    { path: '/teacher-portal/attendance',      name: 'Attendance',      icon: <CalendarCheck size={20}/> },
+    { path: '/teacher-portal/timetable',       name: 'Timetable',       icon: <CalendarDays size={20}/> },
+    { path: '/teacher-portal/announcements',   name: 'Announcements',   icon: <Bell size={20}/> },
+    { path: '/teacher-portal/ptm',             name: 'PTM',             icon: <CalendarClock size={20}/> },
+    { path: '/teacher-portal/leave',           name: 'My Leave',        icon: <CalendarOff size={20}/> },
+    { path: '/teacher-portal/payslip',         name: 'Payslip',         icon: <Banknote size={20}/> },
+    { path: '/teacher-portal/syllabus',        name: 'Syllabus',        icon: <BookMarked size={20}/> },
+    { path: '/teacher-portal/exam-paper',      name: 'Exam Papers',     icon: <GraduationCap size={20}/> },
+    { path: '/teacher-portal/homework',        name: 'Homework Diary',  icon: <BookOpenCheck size={20}/> },
+    { path: '/teacher-portal/diary',           name: 'Class Diary',     icon: <BookOpen size={20}/> },
+    { path: '/teacher-portal/profile',         name: 'My Profile',      icon: <UserCircle size={20}/> },
   ];
 
   useEffect(() => {
@@ -61,28 +77,31 @@ const TeacherPortalLayout = () => {
         <div className="p-4 border-b border-emerald-700/50 flex items-center gap-3">
           <img
             src={logo}
-            alt="Inflorescence"
+            alt="The Best Way"
             style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 2px rgba(255,255,255,0.12)' }}
           />
           <div>
-            <div className="text-white font-bold text-sm leading-tight">Inflorescence</div>
+            <div className="text-white font-bold text-sm leading-tight">The Best Way</div>
             <div style={{ color: '#6ee7b7', fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Teacher Portal</div>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav
+          className="flex-1 p-3 space-y-0.5 overflow-y-auto"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(110,231,183,0.3) transparent' }}
+        >
           {menuItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                 location.pathname === item.path
                   ? 'bg-white/20 text-white shadow-md'
                   : 'text-emerald-200 hover:bg-white/10 hover:text-white'
               }`}
             >
               {item.icon}
-              <span className="font-medium">{item.name}</span>
+              <span className="font-medium text-sm">{item.name}</span>
             </Link>
           ))}
         </nav>
@@ -191,9 +210,12 @@ const TeacherPortalLayout = () => {
               <Link
                 key={item.path}
                 to={item.path}
-                className="flex flex-col items-center justify-center gap-0.5 py-2 flex-shrink-0 transition-all"
-                style={{ color: active ? '#fff' : '#6ee7b7', minWidth: '68px' }}
+                className="flex flex-col items-center justify-center gap-0.5 py-2 flex-shrink-0 transition-all relative"
+                style={{ color: active ? '#fff' : '#a7f3d0', minWidth: '68px' }}
               >
+                {active && (
+                  <span style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 28, height: 2.5, borderRadius: 2, background: '#6ee7b7' }} />
+                )}
                 <span
                   className="rounded-xl p-1.5 transition-all"
                   style={{ background: active ? 'rgba(255,255,255,0.18)' : 'transparent' }}

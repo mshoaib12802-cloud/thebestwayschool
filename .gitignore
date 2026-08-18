@@ -20,3 +20,8 @@ npm-debug.log*
 # Editor
 .vscode/
 .idea/
+
+# Build output and runtime user uploads — never commit
+frontend/dist/
+backend/uploads/*
+!backend/uploads/.gitkeep

@@ -1,6 +1,6 @@
 const express = require('express');
 const router  = express.Router();
-const { protect, staffOnly, studentOnly } = require('../middlewares/authMiddleware');
+const { protect, staffOrTeacher, studentOnly } = require('../middlewares/authMiddleware');
 const {
   getLiveExams, createLiveExam, updateLiveExam, deleteLiveExam, publishToggleLive,
   getQuestions, addQuestion, updateQuestion, deleteQuestion, importQuestions,
@@ -18,16 +18,16 @@ router.get('/student/:id/take',             protect, studentOnly, getLiveExamFor
 router.post('/student/:id/submit',          protect, studentOnly, submitLiveExam);
 
 // Admin / Staff routes
-router.get('/',                    protect, staffOnly, getLiveExams);
-router.post('/',                   protect, staffOnly, createLiveExam);
-router.put('/:id',                 protect, staffOnly, updateLiveExam);
-router.delete('/:id',              protect, staffOnly, deleteLiveExam);
-router.patch('/:id/publish',       protect, staffOnly, publishToggleLive);
-router.get('/:id/questions',       protect, staffOnly, getQuestions);
-router.post('/:id/questions',      protect, staffOnly, addQuestion);
-router.post('/:id/questions/import', protect, staffOnly, importQuestions);
-router.put('/:id/questions/:qid',  protect, staffOnly, updateQuestion);
-router.delete('/:id/questions/:qid', protect, staffOnly, deleteQuestion);
-router.get('/:id/attempts',        protect, staffOnly, getLiveExamAttempts);
+router.get('/',                    protect, staffOrTeacher, getLiveExams);
+router.post('/',                   protect, staffOrTeacher, createLiveExam);
+router.put('/:id',                 protect, staffOrTeacher, updateLiveExam);
+router.delete('/:id',              protect, staffOrTeacher, deleteLiveExam);
+router.patch('/:id/publish',       protect, staffOrTeacher, publishToggleLive);
+router.get('/:id/questions',       protect, staffOrTeacher, getQuestions);
+router.post('/:id/questions',      protect, staffOrTeacher, addQuestion);
+router.post('/:id/questions/import', protect, staffOrTeacher, importQuestions);
+router.put('/:id/questions/:qid',  protect, staffOrTeacher, updateQuestion);
+router.delete('/:id/questions/:qid', protect, staffOrTeacher, deleteQuestion);
+router.get('/:id/attempts',        protect, staffOrTeacher, getLiveExamAttempts);
 
 module.exports = router;

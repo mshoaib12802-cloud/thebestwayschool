@@ -112,8 +112,8 @@ export const generateCertificate = (student) => {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(140, 140, 140);
-  doc.text('Inflorescence Advance Skills', 78, 193, { align: 'center' });
-  doc.text('Inflorescence Advance Skills', 218, 193, { align: 'center' });
+  doc.text('The Best Way Public School',78, 193, { align: 'center' });
+  doc.text('The Best Way Public School',218, 193, { align: 'center' });
 
   // --- Bottom gold stripe ---
   doc.setFillColor(180, 145, 60);

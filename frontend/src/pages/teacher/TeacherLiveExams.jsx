@@ -44,7 +44,11 @@ const TeacherLiveExams = () => {
 
   const load = () => {
     setLoading(true);
-    api.get('/live-exams').then(r => setExams(r.data)).catch(() => {}).finally(() => setLoading(false));
+    api.get('/live-exams')
+      .then(r => setExams(r.data))
+      // Surface the failure — an empty list and a failed load look identical otherwise
+      .catch(() => toast.error('Failed to load live exams'))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {

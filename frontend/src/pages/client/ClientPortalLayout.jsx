@@ -2,7 +2,7 @@ import { useContext, useRef, useEffect, useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import api from '../../services/api';
-import logo from '../../assets/logo.jpeg';
+import logo from '../../assets/logo2.jpeg';
 import {
   LayoutDashboard, Briefcase, FileText, MessageCircle,
   UserCircle, LogOut, ChevronRight,
@@ -54,19 +54,22 @@ const ClientPortalLayout = () => {
         <div className="p-4 border-b border-amber-700/50 flex items-center gap-3">
           <img
             src={logo}
-            alt="Inflorescence"
+            alt="The Best Way"
             style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 2px rgba(255,255,255,0.12)' }}
           />
           <div>
-            <div className="text-white font-bold text-sm leading-tight">Inflorescence</div>
+            <div className="text-white font-bold text-sm leading-tight">The Best Way</div>
             <div style={{ color: '#fcd34d', fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Client Portal</div>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav
+          className="flex-1 p-3 space-y-0.5 overflow-y-auto"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(252,211,77,0.3) transparent' }}
+        >
           {menuItems.map((item) => (
             <Link key={item.path} to={item.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                 location.pathname === item.path
                   ? 'bg-white/20 text-white shadow-md'
                   : 'text-amber-200 hover:bg-white/10 hover:text-white'
@@ -79,7 +82,7 @@ const ClientPortalLayout = () => {
                   </span>
                 )}
               </span>
-              <span className="font-medium">{item.name}</span>
+              <span className="font-medium text-sm">{item.name}</span>
               {item.badge > 0 && (
                 <span className="ml-auto bg-red-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
                   {item.badge}
@@ -158,8 +161,11 @@ const ClientPortalLayout = () => {
             const active = location.pathname === item.path;
             return (
               <Link key={item.path} to={item.path}
-                className="flex flex-col items-center justify-center gap-0.5 py-2 flex-shrink-0 transition-all"
-                style={{ color: active ? '#fff' : '#fcd34d', minWidth: '68px' }}>
+                className="flex flex-col items-center justify-center gap-0.5 py-2 flex-shrink-0 transition-all relative"
+                style={{ color: active ? '#fff' : '#fde68a', minWidth: '68px' }}>
+                {active && (
+                  <span style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 28, height: 2.5, borderRadius: 2, background: '#fcd34d' }} />
+                )}
                 <span className="rounded-xl p-1.5 transition-all relative"
                   style={{ background: active ? 'rgba(255,255,255,0.18)' : 'transparent' }}>
                   {item.icon}

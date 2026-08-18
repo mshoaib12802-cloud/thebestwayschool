@@ -20,14 +20,17 @@ services:
     container_name: erp_backend
     restart: always
     ports:
-      - "5000:5000"
+      # Bound to loopback only — nginx is the public entrypoint.
+      - "127.0.0.1:8091:5000"
     env_file:
       - ./backend/.env
     environment:
       - MONGO_URI=mongodb://mongo:27017/institute_erp
       - NODE_ENV=production
-      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-http://localhost:3000}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-http://localhost:8090}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:8090}
+    volumes:
+      - uploads-data:/app/uploads
     depends_on:
       mongo:
         condition: service_healthy
@@ -37,11 +40,15 @@ services:
     container_name: erp_frontend
     restart: always
     ports:
-      - "3000:3000"
+      # Bound to loopback only — nginx proxies the public domain here.
+      - "127.0.0.1:8090:3000"
     environment:
       - VITE_API_URL=http://backend:5000
+      # Vite 5.4+ rejects unknown Host headers; list the domain nginx sends.
+      - VITE_ALLOWED_HOSTS=${VITE_ALLOWED_HOSTS:-localhost}
     depends_on:
       - backend
 
 volumes:
   mongo-data:
+  uploads-data:

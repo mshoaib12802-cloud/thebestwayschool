@@ -8,12 +8,15 @@ const Course = require('../models/Course');
 const CourseModule = require('../models/CourseModule');
 const DateSheet = require('../models/DateSheet');
 const Schedule = require('../models/Schedule');
+const ReportCard = require('../models/ReportCard');
 
 const getMyProfile = async (req, res) => {
   try {
     const student = await Student.findById(req.user.student_id)
       .populate('courses.trainer_id', 'name role')
-      .populate('courses.batch_id', 'name shift start_date end_date');
+      .populate('courses.batch_id', 'name shift start_date end_date')
+      .populate('school_class_id', 'name grade')
+      .populate('academic_year_id', 'label');
     if (!student) return res.status(404).json({ message: 'Student profile not found' });
     res.json(student);
   } catch (error) { res.status(500).json({ message: error.message }); }
@@ -250,4 +253,14 @@ const getMyReportCard = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-module.exports = { getMyProfile, getMyCourses, getMyFees, getMyResults, getMyAttendance, getMyFines, getMyModules, getMyDateSheets, getMyTimetable, getMyReportCard };
+const getMySchoolReportCards = async (req, res) => {
+  try {
+    const cards = await ReportCard.find({ student_id: req.user.student_id })
+      .populate('class_id', 'name section grade_level')
+      .populate('academic_year_id', 'label')
+      .sort({ createdAt: -1 });
+    res.json(cards);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+module.exports = { getMyProfile, getMyCourses, getMyFees, getMyResults, getMyAttendance, getMyFines, getMyModules, getMyDateSheets, getMyTimetable, getMyReportCard, getMySchoolReportCards };

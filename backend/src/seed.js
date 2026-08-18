@@ -3,11 +3,11 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const mongoose = require('mongoose');
 const crypto   = require('crypto');
+const bcrypt   = require('bcryptjs');
 const User     = require('./models/User');
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://mongo:27017/institute_erp';
 const EMAIL     = process.env.ADMIN_EMAIL || 'admin@inflorescence.com';
-// Use env var if set, otherwise generate a secure random password
 const PASSWORD  = process.env.ADMIN_SEED_PASSWORD || crypto.randomBytes(10).toString('hex');
 
 const seed = async () => {
@@ -15,7 +15,21 @@ const seed = async () => {
     const existing = await User.findOne({ role: 'admin' });
 
     if (existing) {
-      console.log('ℹ️  Admin already exists (' + existing.email + ') — skipping seed.');
+      if (process.env.ADMIN_SEED_PASSWORD) {
+        // Reset admin password using updateOne to bypass pre-save hook
+        const salt = await bcrypt.genSalt(10);
+        const hashed = await bcrypt.hash(PASSWORD, salt);
+        await User.updateOne({ _id: existing._id }, { password: hashed, email: EMAIL });
+
+        console.log('');
+        console.log('✅  Admin password reset!');
+        console.log('──────────────────────────────');
+        console.log('   Email   : ' + EMAIL);
+        console.log('   Password: ' + PASSWORD);
+        console.log('──────────────────────────────');
+      } else {
+        console.log('ℹ️  Admin already exists (' + existing.email + ') — skipping seed.');
+      }
       process.exit(0);
     }
 

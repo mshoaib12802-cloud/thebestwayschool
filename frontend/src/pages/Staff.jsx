@@ -153,7 +153,7 @@ const Staff = () => {
     doc.text('SALARY SLIP', 14, 18);
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
-    doc.text(`Inflorescence Advance Skills  |  ${month}`, 14, 28);
+    doc.text(`The Best Way Public School  |  ${month}`, 14, 28);
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');

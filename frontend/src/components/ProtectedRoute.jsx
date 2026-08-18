@@ -9,6 +9,7 @@ const ProtectedRoute = ({ roles }) => {
     if (user.role === 'student') return <Navigate to="/student-portal/dashboard" replace />;
     if (user.role === 'teacher') return <Navigate to="/teacher-portal/dashboard" replace />;
     if (user.role === 'client')  return <Navigate to="/client-portal/dashboard"  replace />;
+    if (user.role === 'parent')  return <Navigate to="/parent-portal/dashboard"  replace />;
     return <Navigate to="/dashboard" replace />;
   }
   return <Outlet />;

@@ -3,6 +3,7 @@ import api from '../../services/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Wallet, Download, CheckCircle2, AlertCircle, TrendingUp } from 'lucide-react';
+import { loadLogo, drawHeader, drawFooter, drawSection, drawInfoGrid, drawSummaryBox, TABLE_STYLES, C, fmtRs, fmtDate } from '../../utils/pdfKit';
 
 const StudentFees = () => {
   const [data, setData] = useState(null);
@@ -15,29 +16,56 @@ const StudentFees = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const downloadPDF = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.setFont(undefined, 'bold');
-    doc.text('Fee Ledger', 14, 20);
-    doc.setFontSize(11);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Student: ${data.student.name} (${data.student.roll_no})`, 14, 30);
-    doc.text(`Course: ${data.student.course}`, 14, 37);
-    doc.text(`Total Payable: Rs. ${data.summary.total.toLocaleString()}   Paid: Rs. ${data.summary.paid.toLocaleString()}   Balance: Rs. ${data.summary.balance.toLocaleString()}`, 14, 44);
+  const downloadPDF = async () => {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageW = 210, pageH = 297;
+    const logoB64 = await loadLogo();
+    const today = fmtDate(new Date());
+
+    let y = drawHeader(doc, {
+      logoB64,
+      docType: 'Fee Statement',
+      docRef: `Roll: ${data.student.roll_no}`,
+      date: today,
+      pageW,
+    });
+
+    y += 6;
+    y = drawSection(doc, 'Student Information', y, { pageW });
+    y = drawInfoGrid(doc, [
+      ['Student Name', data.student.name],
+      ['Roll Number',  data.student.roll_no],
+      ['Course',       data.student.course || '—'],
+      ['Generated',    today],
+    ], y, { colW: 92 });
+
+    y += 4;
+    y = drawSection(doc, 'Payment History', y, { pageW });
+
     autoTable(doc, {
-      startY: 52,
-      head: [['#', 'Date', 'Amount', 'Method', 'Description']],
+      startY: y,
+      margin: { left: 14, right: 14 },
+      head: [['#', 'Date', 'Description', 'Method', 'Amount (Rs.)']],
       body: data.history.map((t, i) => [
         i + 1,
-        new Date(t.date).toLocaleDateString(),
-        `Rs. ${t.amount.toLocaleString()}`,
-        t.payment_method || 'Cash',
-        t.description || '—'
+        fmtDate(t.date),
+        t.description || 'Fee Payment',
+        (t.payment_method || 'Cash').replace('_', ' '),
+        { content: fmtRs(t.amount), styles: { halign: 'right', textColor: C.green } },
       ]),
-      headStyles: { fillColor: [79, 70, 229] }
+      ...TABLE_STYLES,
+      columnStyles: { 4: { halign: 'right' } },
     });
-    doc.save(`${data.student.name}_FeeStatement.pdf`);
+
+    y = doc.lastAutoTable.finalY + 8;
+    drawSummaryBox(doc, [
+      { label: 'Total Payable',   value: fmtRs(data.summary.total) },
+      { label: 'Total Paid',      value: fmtRs(data.summary.paid),    color: C.green, bold: true },
+      { label: 'Balance Due',     value: fmtRs(data.summary.balance), color: data.summary.balance > 0 ? C.red : C.green, bold: true, large: true },
+    ], y, { pageW });
+
+    drawFooter(doc, { pageNum: 1, totalPages: 1, pageW, pageH });
+    doc.save(`FeeStatement_${data.student.name}_${new Date().getFullYear()}.pdf`);
   };
 
   if (loading) return (

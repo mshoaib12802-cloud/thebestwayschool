@@ -1,8 +1,25 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { CalendarDays, Clock, MapPin, BookOpen, User, Layers, LayoutGrid, List } from 'lucide-react';
+import { CalendarDays, Clock, MapPin, BookOpen, User, Layers, LayoutGrid, List, Coffee } from 'lucide-react';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const SCHOOL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const PALETTE = [
+  { bg: '#ede9fe', text: '#5b21b6', border: '#ddd6fe' },
+  { bg: '#dbeafe', text: '#1e40af', border: '#bfdbfe' },
+  { bg: '#dcfce7', text: '#14532d', border: '#bbf7d0' },
+  { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
+  { bg: '#fce7f3', text: '#831843', border: '#fbcfe8' },
+  { bg: '#ccfbf1', text: '#134e4a', border: '#99f6e4' },
+  { bg: '#e0f2fe', text: '#0c4a6e', border: '#bae6fd' },
+];
+const subjectColor = (id) => {
+  if (!id) return null;
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = id.charCodeAt(i) + ((h << 5) - h);
+  return PALETTE[Math.abs(h) % PALETTE.length];
+};
 
 const DAY_COLORS = ['#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -24,6 +41,10 @@ export default function StudentTimetable() {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState('grid');
+  const [tab, setTab] = useState('batch');
+  const [schoolEntries, setSchoolEntries] = useState([]);
+  const [periods, setPeriods] = useState([]);
+  const [schoolLoading, setSchoolLoading] = useState(false);
 
   useEffect(() => {
     api.get('/student-portal/timetable')
@@ -31,6 +52,18 @@ export default function StudentTimetable() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (tab !== 'school') return;
+    setSchoolLoading(true);
+    Promise.all([
+      api.get('/student-portal/school-timetable'),
+      api.get('/periods'),
+    ]).then(([e, p]) => {
+      setSchoolEntries(e.data);
+      setPeriods(p.data);
+    }).catch(() => {}).finally(() => setSchoolLoading(false));
+  }, [tab]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -45,12 +78,98 @@ export default function StudentTimetable() {
   });
   const myBatches = Object.values(batchMap);
 
+  const entryMap = {};
+  schoolEntries.forEach(e => { entryMap[`${e.day_of_week}__${e.period_id?._id || e.period_id}`] = e; });
+  const getEntry = (day, pid) => entryMap[`${day}__${pid}`] || null;
+  const usedDays = SCHOOL_DAYS.filter(day => periods.some(p => !p.is_break && getEntry(day, p._id)));
+  const displayDays = usedDays.length ? usedDays : SCHOOL_DAYS.slice(0, 5);
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-extrabold text-slate-800">My Timetable</h2>
-        <p className="text-slate-500 mt-1">Your weekly class schedule</p>
+      <div className="flex items-start justify-between flex-wrap gap-4">
+        <div>
+          <h2 className="text-2xl font-extrabold text-slate-800">My Timetable</h2>
+          <p className="text-slate-500 mt-1">Your weekly class schedule</p>
+        </div>
+        <div className="flex bg-slate-100 p-1 rounded-xl gap-0.5">
+          <button onClick={() => setTab('batch')} className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'batch' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+            <Layers size={13} /> Batch Schedule
+          </button>
+          <button onClick={() => setTab('school')} className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${tab === 'school' ? 'bg-white text-teal-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+            <CalendarDays size={13} /> School Timetable
+          </button>
+        </div>
       </div>
+
+      {tab === 'school' && (
+        <>
+          {schoolLoading ? (
+            <div className="flex items-center justify-center h-48"><div className="w-9 h-9 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"/></div>
+          ) : schoolEntries.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center border border-slate-100">
+              <CalendarDays size={48} className="text-slate-300 mx-auto mb-3"/>
+              <p className="text-slate-600 font-semibold">No school timetable assigned yet.</p>
+              <p className="text-slate-400 text-sm mt-1">Ask your admin to set up the class timetable.</p>
+            </div>
+          ) : periods.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center border border-slate-100"><p className="text-slate-400">No periods configured.</p></div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+              <table className="w-full border-collapse" style={{ minWidth: `${displayDays.length * 140 + 140}px` }}>
+                <thead>
+                  <tr>
+                    <th className="bg-teal-700 text-white text-left px-4 py-3 text-xs font-bold uppercase tracking-wider rounded-tl-2xl" style={{ minWidth: 140 }}>Period</th>
+                    {displayDays.map((day, i) => (
+                      <th key={day} className={`bg-teal-700 text-white text-center px-3 py-3 text-xs font-bold uppercase tracking-wider ${i === displayDays.length - 1 ? 'rounded-tr-2xl' : ''}`} style={{ minWidth: 130 }}>{day}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {periods.map((period, pIdx) => (
+                    <tr key={period._id} className={pIdx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}>
+                      <td className="px-4 py-3 border-r border-slate-100">
+                        <div className="flex items-center gap-2">
+                          {period.is_break ? <Coffee size={13} className="text-amber-500 flex-shrink-0" /> : <div className="w-5 h-5 rounded-md bg-teal-100 text-teal-700 flex items-center justify-center text-[10px] font-bold flex-shrink-0">{pIdx + 1}</div>}
+                          <div>
+                            <p className="text-xs font-semibold text-slate-700">{period.name}</p>
+                            <p className="text-[10px] text-slate-400">{fmt12(period.start_time)}</p>
+                          </div>
+                        </div>
+                      </td>
+                      {displayDays.map(day => {
+                        if (period.is_break) {
+                          return (
+                            <td key={day} className="px-3 py-3 border-r border-slate-100 text-center">
+                              <div className="bg-amber-50 border border-amber-100 rounded-lg py-1.5 text-[10px] font-semibold text-amber-600 flex items-center justify-center gap-1"><Coffee size={10} /> Break</div>
+                            </td>
+                          );
+                        }
+                        const entry = getEntry(day, period._id);
+                        const color = entry?.subject_id ? subjectColor(entry.subject_id._id || entry.subject_id) : null;
+                        return (
+                          <td key={day} className="px-3 py-3 border-r border-slate-100">
+                            {entry?.subject_id ? (
+                              <div className="rounded-xl px-3 py-2 border" style={{ background: color?.bg, borderColor: color?.border, color: color?.text }}>
+                                <p className="text-xs font-bold leading-tight">{entry.subject_id.name}</p>
+                                {entry.teacher_id && <p className="text-[10px] mt-0.5 opacity-75">{entry.teacher_id.name}</p>}
+                                {entry.room && <p className="text-[10px] opacity-60">Room {entry.room}</p>}
+                              </div>
+                            ) : (
+                              <div className="text-center text-[10px] text-slate-300">—</div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === 'batch' && (<>
 
       {/* Batch info cards */}
       {myBatches.map(batch => {
@@ -256,6 +375,7 @@ export default function StudentTimetable() {
           )}
         </>
       )}
+      </>)}
     </div>
   );
 }

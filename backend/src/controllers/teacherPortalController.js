@@ -33,20 +33,52 @@ const getMyCourseDocs = async (teacherId) => {
   return Course.find({ name: { $in: [...nameSet] } });
 };
 
+// Every student taught by this teacher: school-system students (reached via timetable
+// slots or class-teacher assignment) plus legacy course-based students. Kept in step
+// with getTeacherStudents so dashboard/profile counts match the My Students list.
+const getMyStudentIds = async (teacherId) => {
+  const ClassTimetable = require('../models/ClassTimetable');
+  const SchoolClass = require('../models/SchoolClass');
+
+  const [timetableClassIds, classTeacherIds] = await Promise.all([
+    ClassTimetable.distinct('class_id', { teacher_id: teacherId }),
+    SchoolClass.distinct('_id', { class_teacher: teacherId }),
+  ]);
+
+  const allClassIds = [...new Set([
+    ...timetableClassIds.map(id => id.toString()),
+    ...classTeacherIds.map(id => id.toString()),
+  ])];
+
+  const [schoolIds, courseIds] = await Promise.all([
+    allClassIds.length > 0
+      ? Student.distinct('_id', { school_class_id: { $in: allClassIds }, isActive: true })
+      : [],
+    Student.distinct('_id', { 'courses.trainer_id': teacherId, isActive: true }),
+  ]);
+
+  const seen = new Set();
+  const ids = [];
+  for (const id of [...schoolIds, ...courseIds]) {
+    const key = id.toString();
+    if (!seen.has(key)) { seen.add(key); ids.push(id); }
+  }
+  return ids;
+};
+
 const getTeacherDashboard = async (req, res) => {
   try {
     const teacherId = req.user._id;
     const myCourses = await getMyCourseDocs(teacherId);
     const courseIds = myCourses.map(c => c._id);
+    const studentIds = await getMyStudentIds(teacherId);
 
-    const [studentCount, modAgg, recentExams, myStudentDocs, commissionAgg] = await Promise.all([
-      Student.countDocuments({ 'courses.trainer_id': teacherId, isActive: true }),
+    const [modAgg, recentExams, commissionAgg] = await Promise.all([
       CourseModule.aggregate([
         { $match: { course_id: { $in: courseIds } } },
         { $group: { _id: null, total: { $sum: 1 }, completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } }, in_progress: { $sum: { $cond: [{ $eq: ['$status', 'in_progress'] }, 1, 0] } } } }
       ]),
       Exam.find({ created_by: teacherId }).sort({ exam_date: -1 }).limit(5),
-      Student.find({ 'courses.trainer_id': teacherId, isActive: true }).select('_id'),
       require('../models/Transaction').aggregate([
         { $match: { category: 'trainer_commission', staff_id: teacherId } },
         { $group: { _id: null, total: { $sum: '$amount' } } }
@@ -54,7 +86,6 @@ const getTeacherDashboard = async (req, res) => {
     ]);
 
     const m = modAgg[0] || { total: 0, completed: 0, in_progress: 0 };
-    const studentIds = myStudentDocs.map(s => s._id);
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -91,7 +122,7 @@ const getTeacherDashboard = async (req, res) => {
     }));
 
     res.json({
-      studentCount,
+      studentCount: studentIds.length,
       courseCount: myCourses.length,
       todayPresent,
       totalEarnings: commissionAgg[0]?.total || 0,
@@ -139,10 +170,43 @@ const getTeacherCourses = async (req, res) => {
 
 const getTeacherStudents = async (req, res) => {
   try {
-    const students = await Student.find({ 'courses.trainer_id': req.user._id, isActive: true })
+    const teacherId = req.user._id;
+    const ClassTimetable = require('../models/ClassTimetable');
+    const SchoolClass = require('../models/SchoolClass');
+
+    // Find all classes this teacher is assigned to (via timetable slots or class teacher role)
+    const [timetableClassIds, classTeacherIds] = await Promise.all([
+      ClassTimetable.distinct('class_id', { teacher_id: teacherId }),
+      SchoolClass.distinct('_id', { class_teacher: teacherId }),
+    ]);
+
+    const allClassIds = [...new Set([
+      ...timetableClassIds.map(id => id.toString()),
+      ...classTeacherIds.map(id => id.toString()),
+    ])];
+
+    // School-system students
+    const schoolStudents = allClassIds.length > 0
+      ? await Student.find({ school_class_id: { $in: allClassIds }, isActive: true })
+          .select('full_name roll_number phone email gender school_class_id academic_year_id')
+          .populate('school_class_id', 'name section grade_level')
+          .populate('academic_year_id', 'label')
+      : [];
+
+    // Legacy course-based students
+    const courseStudents = await Student.find({ 'courses.trainer_id': teacherId, isActive: true })
       .select('full_name roll_number courses phone email')
       .populate('courses.batch_id', 'name shift start_date end_date');
-    res.json(students);
+
+    // Merge, deduplicate by _id
+    const seen = new Set();
+    const all = [];
+    for (const s of [...schoolStudents, ...courseStudents]) {
+      const id = s._id.toString();
+      if (!seen.has(id)) { seen.add(id); all.push(s); }
+    }
+
+    res.json(all);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -274,8 +338,8 @@ const getTeacherProfile = async (req, res) => {
     const myCourses = await getMyCourseDocs(req.user._id);
     const courseIds = myCourses.map(c => c._id);
 
-    const [studentCount, modAgg, examCount, totalCommission] = await Promise.all([
-      Student.countDocuments({ 'courses.trainer_id': req.user._id, isActive: true }),
+    const [studentIds, modAgg, examCount, totalCommission] = await Promise.all([
+      getMyStudentIds(req.user._id),
       CourseModule.aggregate([
         { $match: { course_id: { $in: courseIds } } },
         { $group: { _id: null, total: { $sum: 1 }, completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } } } }
@@ -294,7 +358,7 @@ const getTeacherProfile = async (req, res) => {
     res.json({
       teacher,
       stats: {
-        studentCount,
+        studentCount: studentIds.length,
         courseCount: myCourses.length,
         modulesTotal: m.total,
         modulesCompleted: m.completed,

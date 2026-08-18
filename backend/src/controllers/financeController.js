@@ -151,7 +151,9 @@ const paySalary = async (req, res) => {
 // --- 4. MONTHLY REPORT ---
 const getMonthlyFinance = async (req, res) => {
   try {
-    const { month, year } = req.query;
+    const now = new Date();
+    const month = Number(req.query.month) || (now.getMonth() + 1);
+    const year  = Number(req.query.year)  || now.getFullYear();
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
 

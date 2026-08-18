@@ -128,7 +128,7 @@ export default function StudentDateSheet() {
     doc.setFontSize(8);
     doc.setTextColor(120, 120, 160);
     doc.text('Report 15 minutes before the exam. Bring your Student ID Card.', pageW / 2, finalY + 6, { align: 'center' });
-    doc.text('Inflorescence Advance Skills — Excellence in Advanced Skills', pageW / 2, finalY + 12, { align: 'center' });
+    doc.text('The Best Way Public School — Learn, Grow & Succeed', pageW / 2, finalY + 12, { align: 'center' });
 
     doc.save(`DateSheet_${sheet.course_name}.pdf`);
   };
@@ -302,7 +302,7 @@ export default function StudentDateSheet() {
               </table>
             </div>
             <div className="px-5 pb-5 pt-2 text-xs text-slate-400 border-t border-slate-50">
-              ⏰ Report 15 minutes early · Bring Student ID Card · Inflorescence Advance Skills
+              ⏰ Report 15 minutes early · Bring Student ID Card · The Best Way Public School
             </div>
           </div>
         </div>

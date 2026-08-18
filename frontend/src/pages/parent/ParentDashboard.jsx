@@ -99,7 +99,7 @@ export default function ParentDashboard() {
   const todayName    = DAYS[new Date().getDay()];
   const todayClasses = timetable
     .filter(e => e.day_of_week === todayName && e.subject_id)
-    .sort((a, b) => (a.period_id?.sort_order || 0) - (b.period_id?.sort_order || 0));
+    .sort((a, b) => (a.period_id?.order || 0) - (b.period_id?.order || 0));
 
   const pendingHw  = homework.filter(h => h.class_id?._id === child?.school_class_id?._id || h.class_id === child?.school_class_id);
   const overdueHw  = pendingHw.filter(h => h.due_date && new Date(h.due_date) < new Date());

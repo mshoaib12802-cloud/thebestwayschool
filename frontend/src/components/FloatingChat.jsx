@@ -142,12 +142,14 @@ export default function FloatingChat() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  // Only show for student / teacher
-  if (!user || !['student', 'teacher'].includes(user.role)) return null;
+  // Only show for student / teacher / parent
+  if (!user || !['student', 'teacher', 'parent'].includes(user.role)) return null;
 
   const accentGrad = 'linear-gradient(135deg, #25d366 0%, #128c7e 100%)';
   const avatarGrad = user.role === 'student'
     ? 'linear-gradient(135deg, #064e3b, #065f46)'
+    : user.role === 'parent'
+    ? 'linear-gradient(135deg, #7c3aed, #5b21b6)'
     : 'linear-gradient(135deg, #1e1b4b, #312e81)';
 
   return (
@@ -219,7 +221,7 @@ export default function FloatingChat() {
               <div style={{ background: accentGrad, padding: '18px 20px', color: '#fff', flexShrink: 0 }}>
                 <p style={{ fontWeight: 800, fontSize: '16px', margin: 0 }}>Messages</p>
                 <p style={{ fontSize: '12px', opacity: 0.85, margin: '3px 0 0' }}>
-                  {user.role === 'student' ? 'Chat with your teachers' : 'Chat with your students'}
+                  {user.role === 'student' ? 'Chat with your teachers' : user.role === 'parent' ? 'Chat with teachers' : 'Chat with your students & parents'}
                 </p>
               </div>
 
@@ -228,12 +230,14 @@ export default function FloatingChat() {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', padding: '24px', textAlign: 'center' }}>
                     <MessageCircle size={42} style={{ marginBottom: 12, opacity: 0.35 }} />
                     <p style={{ fontWeight: 700, fontSize: '14px', margin: 0 }}>
-                      {user.role === 'student' ? 'No teachers assigned yet' : 'No students assigned yet'}
+                      {user.role === 'student' ? 'No teachers found' : user.role === 'parent' ? 'No teachers found' : 'No contacts found'}
                     </p>
                     <p style={{ fontSize: '12px', margin: '6px 0 0', lineHeight: 1.5 }}>
                       {user.role === 'student'
-                        ? 'Your teachers will appear here once enrolled in a course'
-                        : 'Your students will appear here once assigned to your course'}
+                        ? 'Teachers appear here once the admin assigns subjects in the School Timetable Builder'
+                        : user.role === 'parent'
+                        ? 'Teachers appear once your child is assigned to a class with a timetable'
+                        : 'Students and parents appear here once assigned to your classes'}
                     </p>
                   </div>
                 ) : contacts.map(c => (
@@ -268,7 +272,18 @@ export default function FloatingChat() {
                           </span>
                         )}
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 3 }}>
+                      {/* Subject tags — shown for teachers */}
+                      {c.subjects?.length > 0 && (
+                        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', margin: '3px 0 2px' }}>
+                          {c.subjects.slice(0, 3).map(s => (
+                            <span key={s} style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: '#e0e7ff', color: '#4338ca' }}>{s}</span>
+                          ))}
+                          {c.subjects.length > 3 && (
+                            <span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: '#f1f5f9', color: '#64748b' }}>+{c.subjects.length - 3}</span>
+                          )}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
                         <p style={{ fontSize: '12px', color: c.unread > 0 ? '#1e293b' : '#94a3b8', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: c.unread > 0 ? 600 : 400, maxWidth: '200px' }}>
                           {c.lastMessage || 'Tap to start chatting'}
                         </p>

@@ -27,9 +27,9 @@ done
 echo "✅ MongoDB is ready!"
 echo ""
 
-# Run seed (creates admin only if no admin exists yet)
+# Run full seed (creates admin + test data if not already seeded)
 echo "🌱 Running database seed..."
-node src/seed.js
+node src/seedAll.js
 
 echo ""
 echo "🚀 Starting server..."

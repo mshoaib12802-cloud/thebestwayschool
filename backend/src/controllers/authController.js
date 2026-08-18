@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Student = require('../models/Student');
 const generateToken = require('../utils/generateToken');
 
 // @desc    Auth user & get token
@@ -23,8 +24,9 @@ const authUser = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        student_id: user.student_id || null,
-        client_id:  user.client_id  || null,
+        student_id:  user.student_id  || null,
+        client_id:   user.client_id   || null,
+        student_ids: user.student_ids || [],
         token: generateToken(user._id),
       });
     } else {
@@ -37,4 +39,51 @@ const authUser = async (req, res) => {
   }
 };
 
-module.exports = { authUser };
+// @desc    Student portal login — phone number + name-derived password
+// @route   POST /api/auth/student-login
+const studentLogin = async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+    if (!phone || !password) {
+      return res.status(400).json({ message: 'Please provide phone number and password' });
+    }
+
+    const student = await Student.findOne({ phone: phone.trim() });
+    if (!student) {
+      return res.status(401).json({ message: 'Invalid phone number or password' });
+    }
+
+    // Derive expected password: full_name with first letter capitalised, no spaces
+    const raw = student.full_name.trim().replace(/\s+/g, '');
+    const expectedPassword = raw.charAt(0).toUpperCase() + raw.slice(1);
+
+    if (password !== expectedPassword) {
+      return res.status(401).json({ message: 'Invalid phone number or password' });
+    }
+
+    if (!student.user_id) {
+      return res.status(401).json({ message: 'No portal account linked to this student' });
+    }
+
+    const user = await User.findById(student.user_id);
+    if (!user) {
+      return res.status(401).json({ message: 'Portal account not found' });
+    }
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      student_id:  user.student_id  || null,
+      client_id:   user.client_id   || null,
+      student_ids: user.student_ids || [],
+      token: generateToken(user._id),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+module.exports = { authUser, studentLogin };

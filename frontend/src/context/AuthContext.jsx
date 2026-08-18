@@ -31,6 +31,20 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const studentLogin = async (phone, password) => {
+    try {
+      const { data } = await api.post('/auth/student-login', { phone, password });
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data));
+      setUser(data);
+      toast.success(`Welcome, ${data.name}!`);
+      return data;
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Login failed');
+      return null;
+    }
+  };
+
   // Logout Function
   const logout = () => {
     localStorage.removeItem('token');
@@ -40,7 +54,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, studentLogin, logout, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

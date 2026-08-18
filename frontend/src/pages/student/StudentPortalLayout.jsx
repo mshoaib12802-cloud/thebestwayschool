@@ -3,33 +3,47 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 import NotificationBell from '../../components/NotificationBell';
 import FloatingChat from '../../components/FloatingChat';
-import logo from '../../assets/logo.jpeg';
+import { usePushNotifications } from '../../hooks/usePushNotifications';
+import logo from '../../assets/logo2.jpeg';
 import {
   LayoutDashboard, BookOpen, Wallet, Award,
   CalendarCheck, LogOut, AlertTriangle, Layers, UserCircle,
-  FileSpreadsheet, CalendarDays, Zap, ChevronRight, PlayCircle
+  FileSpreadsheet, CalendarDays, Zap, ChevronRight, PlayCircle,
+  ClipboardCheck, Bell, CalendarOff, BookMarked, Receipt, BookOpenCheck, MessageCircle,
+  UtensilsCrossed,
 } from 'lucide-react';
 
 const StudentPortalLayout = () => {
   const { user, logout } = useContext(AuthContext);
   const location = useLocation();
   const navRef = useRef(null);
+  usePushNotifications(user);
   const [showRightFade, setShowRightFade] = useState(true);
   const [showHint, setShowHint] = useState(false);
 
   const menuItems = [
-    { path: '/student-portal/dashboard', name: 'Dashboard',   icon: <LayoutDashboard size={20} /> },
-    { path: '/student-portal/lms',       name: 'My Learning', icon: <PlayCircle size={20} /> },
-    { path: '/student-portal/courses',   name: 'My Courses',  icon: <BookOpen size={20} /> },
-    { path: '/student-portal/modules',   name: 'My Modules',  icon: <Layers size={20} /> },
-    { path: '/student-portal/fees',      name: 'Fee Ledger',  icon: <Wallet size={20} /> },
-    { path: '/student-portal/results',   name: 'Exam Results',icon: <Award size={20} /> },
-    { path: '/student-portal/live-exams',name: 'Live Exams',  icon: <Zap size={20} /> },
-    { path: '/student-portal/attendance',name: 'Attendance',  icon: <CalendarCheck size={20} /> },
-    { path: '/student-portal/fines',     name: 'My Fines',    icon: <AlertTriangle size={20} /> },
-    { path: '/student-portal/date-sheets',name:'Date Sheets', icon: <FileSpreadsheet size={20} /> },
-    { path: '/student-portal/timetable', name: 'Timetable',   icon: <CalendarDays size={20} /> },
-    { path: '/student-portal/profile',   name: 'My Profile',  icon: <UserCircle size={20} /> },
+    { path: '/student-portal/dashboard',    name: 'Dashboard',    icon: <LayoutDashboard size={20} /> },
+    { path: '/student-portal/lms',          name: 'My Learning',  icon: <PlayCircle size={20} /> },
+    { path: '/student-portal/school-lms',  name: 'Video Lessons',icon: <PlayCircle size={20} /> },
+    { path: '/student-portal/courses',      name: 'My Courses',   icon: <BookOpen size={20} /> },
+    { path: '/student-portal/modules',      name: 'My Modules',   icon: <Layers size={20} /> },
+    { path: '/student-portal/assignments',  name: 'Assignments',  icon: <ClipboardCheck size={20} /> },
+    { path: '/student-portal/announcements',name: 'Notices',      icon: <Bell size={20} /> },
+    { path: '/student-portal/fee-invoices', name: 'Fee Invoices', icon: <Receipt size={20} /> },
+    { path: '/student-portal/fees',         name: 'Fee Ledger',   icon: <Wallet size={20} /> },
+    { path: '/student-portal/canteen',      name: 'Canteen',      icon: <UtensilsCrossed size={20} /> },
+    { path: '/student-portal/results',      name: 'Exam Results', icon: <Award size={20} /> },
+    { path: '/student-portal/live-exams',   name: 'Live Exams',   icon: <Zap size={20} /> },
+    { path: '/student-portal/attendance',   name: 'Attendance',   icon: <CalendarCheck size={20} /> },
+    { path: '/student-portal/fines',        name: 'My Fines',     icon: <AlertTriangle size={20} /> },
+    { path: '/student-portal/library',      name: 'Library',      icon: <BookMarked size={20} /> },
+    { path: '/student-portal/leave',        name: 'My Leave',     icon: <CalendarOff size={20} /> },
+    { path: '/student-portal/date-sheets',  name: 'Date Sheets',  icon: <FileSpreadsheet size={20} /> },
+    { path: '/student-portal/timetable',    name: 'Timetable',    icon: <CalendarDays size={20} /> },
+    { path: '/student-portal/homework',     name: 'Homework',     icon: <BookOpenCheck size={20} /> },
+    { path: '/student-portal/diary',        name: 'Class Diary',  icon: <BookOpen size={20} /> },
+    { path: '/student-portal/complaints',   name: 'Complaints',   icon: <MessageCircle size={20} /> },
+    { path: '/student-portal/profile',      name: 'My Profile',   icon: <UserCircle size={20} /> },
   ];
 
   useEffect(() => {
@@ -65,28 +79,31 @@ const StudentPortalLayout = () => {
         <div className="p-4 border-b border-indigo-700/50 flex items-center gap-3">
           <img
             src={logo}
-            alt="Inflorescence"
+            alt="The Best Way"
             style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, boxShadow: '0 0 0 2px rgba(255,255,255,0.12)' }}
           />
           <div>
-            <div className="text-white font-bold text-sm leading-tight">Inflorescence</div>
+            <div className="text-white font-bold text-sm leading-tight">The Best Way</div>
             <div style={{ color: '#a5b4fc', fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Student Portal</div>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav
+          className="flex-1 p-3 space-y-0.5 overflow-y-auto"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(165,180,252,0.3) transparent' }}
+        >
           {menuItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                 location.pathname === item.path
                   ? 'bg-white/20 text-white shadow-md'
                   : 'text-indigo-200 hover:bg-white/10 hover:text-white'
               }`}
             >
               {item.icon}
-              <span className="font-medium">{item.name}</span>
+              <span className="font-medium text-sm">{item.name}</span>
             </Link>
           ))}
         </nav>
@@ -195,9 +212,12 @@ const StudentPortalLayout = () => {
               <Link
                 key={item.path}
                 to={item.path}
-                className="flex flex-col items-center justify-center gap-0.5 py-2 flex-shrink-0 transition-all"
-                style={{ color: active ? '#fff' : '#a5b4fc', minWidth: '68px' }}
+                className="flex flex-col items-center justify-center gap-0.5 py-2 flex-shrink-0 transition-all relative"
+                style={{ color: active ? '#fff' : '#c7d2fe', minWidth: '68px' }}
               >
+                {active && (
+                  <span style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 28, height: 2.5, borderRadius: 2, background: '#a5b4fc' }} />
+                )}
                 <span
                   className="rounded-xl p-1.5 transition-all"
                   style={{ background: active ? 'rgba(255,255,255,0.18)' : 'transparent' }}

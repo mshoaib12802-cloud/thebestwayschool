@@ -9,12 +9,14 @@ import {
 } from 'recharts';
 import {
   Wallet, TrendingUp, TrendingDown, Users, AlertTriangle,
-  CheckCircle2, XCircle, Search, DollarSign, Briefcase, Wrench,
+  CheckCircle2, XCircle, Search, Briefcase, Wrench,
   FileText, Eye, Printer, X, Download, Calendar, BellRing,
   Award, ChevronDown, ChevronUp, MessageCircle, Phone, Trash2,
   ArrowUpRight, ArrowDownRight, List, CreditCard, Repeat, Zap,
   BarChart2, Shield, PlayCircle
 } from 'lucide-react';
+import RupeeIcon from '../components/RupeeIcon';
+import { loadLogo, drawHeader, drawFooter, drawSection, drawInfoGrid, drawSummaryBox, TABLE_STYLES, C, fmtRs, fmtDate } from '../utils/pdfKit';
 
 const CATEGORY_LABELS = {
   fee_collection: 'Fee', salary_payment: 'Salary', trainer_commission: 'Commission',
@@ -142,109 +144,63 @@ const Finance = () => {
   // --- SALARY ---
   const openSalaryModal = (emp) => { setSalaryTarget(emp); setShowSalaryModal(true); };
 
-  const generateSalarySlipPDF = (emp, month, year) => {
-    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const generateSalarySlipPDF = async (emp, month, year) => {
+    const doc       = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageW     = 210, pageH = 297;
     const monthName = new Date(year, month - 1, 1).toLocaleString('default', { month: 'long' });
-    const pageW = doc.internal.pageSize.getWidth();
+    const period    = `${monthName} ${year}`;
+    const refNo     = `SAL-${year}${String(month).padStart(2,'0')}-${emp._id?.toString().slice(-4).toUpperCase()}`;
+    const roleLabel = { teacher:'Teacher', clerk:'Clerk', office_boy:'Office Staff' }[emp.role] || 'Staff';
+    const logoB64   = await loadLogo();
 
-    // Header background
-    doc.setFillColor(30, 58, 95);
-    doc.rect(0, 0, pageW, 42, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Inflorescence Advance Skills', 14, 16);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'normal');
-    doc.text('SALARY SLIP', 14, 25);
-    doc.setFontSize(10);
-    doc.text(`${monthName} ${year}`, 14, 33);
+    let y = drawHeader(doc, { logoB64, docType: 'Salary Slip', docRef: refNo, date: fmtDate(new Date()), pageW });
+    y += 6;
 
-    // Slip No & Date top-right
-    doc.setFontSize(9);
-    doc.text(`Date: ${new Date().toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' })}`, pageW - 14, 20, { align: 'right' });
-    doc.text(`Ref: SAL-${year}${String(month).padStart(2,'0')}-${emp._id?.toString().slice(-4).toUpperCase()}`, pageW - 14, 28, { align: 'right' });
+    y = drawSection(doc, 'Employee Details', y, { pageW });
+    y = drawInfoGrid(doc, [
+      ['Name',        emp.name || '—'],
+      ['Period',      period],
+      ['Designation', roleLabel],
+      ['Email',       emp.email || '—'],
+      ['Salary Type', (emp.salary_type || 'Monthly').replace('_',' ')],
+      ['Pay Date',    fmtDate(new Date())],
+    ], y, { colW: 90 });
 
-    // Employee details
-    doc.setTextColor(30, 41, 59);
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Employee Details', 14, 54);
-    doc.setLineWidth(0.4);
-    doc.setDrawColor(100, 116, 139);
-    doc.line(14, 56, pageW - 14, 56);
-
-    const roleLabel = emp.role === 'teacher' ? 'Teacher' : emp.role === 'clerk' ? 'Clerk' : emp.role === 'office_boy' ? 'Office Staff' : 'Staff';
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    const empDetails = [
-      ['Name:', emp.name],
-      ['Designation:', roleLabel],
-      ['Pay Period:', `${monthName} ${year}`],
-      ['Email:', emp.email || '—'],
-    ];
-    let y = 63;
-    empDetails.forEach(([label, val]) => {
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(100, 116, 139);
-      doc.text(label, 14, y);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(30, 41, 59);
-      doc.text(String(val), 55, y);
-      y += 7;
-    });
-
-    // Earnings table
     y += 4;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(30, 41, 59);
-    doc.text('Earnings Breakdown', 14, y);
-    doc.line(14, y + 2, pageW - 14, y + 2);
+    y = drawSection(doc, 'Earnings Breakdown', y, { pageW });
 
-    const rows = [['Basic Salary', '', `Rs. ${Number(emp.salary || 0).toLocaleString()}`]];
-    if ((emp.commission_earned || 0) > 0) rows.push(['Commission / Incentive', '', `Rs. ${Number(emp.commission_earned).toLocaleString()}`]);
+    const earningsRows = [
+      ['Basic Salary', '', { content: fmtRs(emp.salary), styles: { halign:'right', fontStyle:'bold', textColor: C.green } }],
+    ];
+    if ((emp.commission_earned || 0) > 0) {
+      earningsRows.push(['Commission / Incentive', '', { content: fmtRs(emp.commission_earned), styles: { halign:'right', textColor: C.green } }]);
+    }
 
     autoTable(doc, {
-      startY: y + 5,
-      head: [['Component', 'Notes', 'Amount']],
-      body: rows,
-      styles: { fontSize: 10, cellPadding: 4 },
-      headStyles: { fillColor: [30, 58, 95], textColor: 255, fontStyle: 'bold' },
-      columnStyles: { 0: { fontStyle: 'bold' }, 2: { halign: 'right' } },
+      startY: y,
       margin: { left: 14, right: 14 },
+      head: [['Component', 'Notes', 'Amount (Rs.)']],
+      body: earningsRows,
+      ...TABLE_STYLES,
+      columnStyles: { 2: { halign: 'right' } },
     });
 
-    const afterTable = doc.lastAutoTable.finalY + 6;
+    y = doc.lastAutoTable.finalY + 8;
 
-    // Net pay box
-    doc.setFillColor(239, 246, 255);
-    doc.roundedRect(14, afterTable, pageW - 28, 18, 3, 3, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(30, 58, 95);
-    doc.text('NET PAY', 20, afterTable + 12);
-    doc.setFontSize(16);
-    doc.text(`Rs. ${Number(emp.total_payout || emp.salary || 0).toLocaleString()}`, pageW - 20, afterTable + 12, { align: 'right' });
+    drawSummaryBox(doc, [
+      { label: 'Basic Salary',    value: fmtRs(emp.salary) },
+      ...(emp.commission_earned > 0 ? [{ label: 'Commission', value: fmtRs(emp.commission_earned), color: C.green }] : []),
+      { label: 'NET PAY', value: fmtRs(emp.total_payout || emp.salary), bold: true, large: true, color: C.green },
+    ], y, { pageW });
 
-    // Footer
-    const footerY = afterTable + 34;
-    doc.setDrawColor(203, 213, 225);
-    doc.setLineWidth(0.3);
-    doc.line(14, footerY, pageW - 14, footerY);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(148, 163, 184);
-    doc.text('This is a computer-generated salary slip and does not require a signature.', pageW / 2, footerY + 6, { align: 'center' });
-    doc.text('Inflorescence Advance Skills — ERP System', pageW / 2, footerY + 11, { align: 'center' });
-
+    drawFooter(doc, { pageNum: 1, totalPages: 1, pageW, pageH });
     return doc;
   };
 
   const submitSalary = async () => {
     try {
       // Generate PDF slip
-      const doc = generateSalarySlipPDF(salaryTarget, selectedMonth, selectedYear);
+      const doc = await generateSalarySlipPDF(salaryTarget, selectedMonth, selectedYear);
       const pdfBase64 = doc.output('datauristring').split(',')[1];
 
       await api.post('/finance/pay-salary', {
@@ -383,91 +339,89 @@ const Finance = () => {
   };
 
   // --- PDF REPORTS ---
-  const generatePDFReport = () => {
+  const generatePDFReport = async () => {
     try {
-      const doc = new jsPDF();
-      doc.setFillColor(15, 23, 42);
-      doc.rect(0, 0, 210, 40, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(20);
-      doc.text('Institute Financial Report', 14, 25);
-      doc.setFontSize(9);
-      doc.setTextColor(200, 200, 200);
-      doc.text(`Period: ${selectedMonth}/${selectedYear}  |  Generated: ${new Date().toLocaleString()}`, 14, 33);
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(11);
-      doc.text(`Income: Rs. ${data.stats?.income?.toLocaleString() || 0}`, 14, 50);
-      doc.text(`Expense: Rs. ${data.stats?.expense?.toLocaleString() || 0}`, 80, 50);
-      doc.text(`Profit: Rs. ${data.stats?.profit?.toLocaleString() || 0}`, 150, 50);
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const pageW = 210, pageH = 297;
+      const monthName = new Date(0, selectedMonth - 1).toLocaleString('default', { month: 'long' });
+      const logoB64 = await loadLogo();
+
+      let y = drawHeader(doc, { logoB64, docType: 'Financial Report', docRef: `${monthName} ${selectedYear}`, date: fmtDate(new Date()), pageW });
+      y += 6;
+
+      y = drawSection(doc, 'Summary', y, { pageW });
+      drawSummaryBox(doc, [
+        { label: 'Total Income',  value: fmtRs(data.stats?.income),  color: C.green },
+        { label: 'Total Expense', value: fmtRs(data.stats?.expense), color: C.red },
+        { label: 'Net Profit',    value: fmtRs(data.stats?.profit),  bold: true, large: true, color: (data.stats?.profit || 0) >= 0 ? C.green : C.red },
+      ], y, { pageW });
+      y = doc.lastAutoTable?.finalY + 8 || y + 32;
+
+      y = drawSection(doc, 'Fee Collection Detail', y, { pageW });
       autoTable(doc, {
-        startY: 58,
-        head: [['Roll No', 'Name', 'Monthly Fee', 'Late Fee', 'Total Due', 'Paid', 'Status', 'Date']],
+        startY: y,
+        margin: { left: 14, right: 14 },
+        head: [['Roll No', 'Student', 'Fee Due', 'Paid', 'Status']],
         body: filteredStudents.map(s => [
-          s.roll_no, s.name,
-          `Rs. ${s.fee_amount}`,
-          s.late_fee_amount > 0 ? `Rs. ${s.late_fee_amount}` : '-',
-          `Rs. ${s.total_due || s.fee_amount}`,
-          `Rs. ${s.paid_amount || 0}`,
-          s.status, s.paid_date ? new Date(s.paid_date).toLocaleDateString() : '-'
+          s.roll_no, s.name, fmtRs(s.total_due || s.fee_amount), fmtRs(s.paid_amount || 0),
+          { content: s.status, styles: { textColor: s.status === 'Paid' ? C.green : C.red, fontStyle: 'bold' } },
         ]),
-        theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229] },
-        alternateRowStyles: { fillColor: [240, 240, 255] }
+        ...TABLE_STYLES,
       });
-      doc.save(`Finance_${selectedMonth}_${selectedYear}.pdf`);
+
+      drawFooter(doc, { pageNum: 1, totalPages: 1, pageW, pageH });
+      doc.save(`FinancialReport_${monthName}_${selectedYear}.pdf`);
       toast.success('PDF Downloaded!');
     } catch (error) { console.error(error); toast.error('PDF Generation Failed'); }
   };
 
-  const generatePayrollPDF = () => {
+  const generatePayrollPDF = async () => {
     try {
-      const doc = new jsPDF();
-      doc.setFillColor(15, 23, 42);
-      doc.rect(0, 0, 210, 40, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(18);
-      doc.text('Payroll Report', 14, 22);
-      doc.setFontSize(9);
-      doc.setTextColor(200, 200, 200);
-      doc.text(
-        `${new Date(0, selectedMonth - 1).toLocaleString('default', { month: 'long' })} ${selectedYear}  |  Generated: ${new Date().toLocaleString()}`,
-        14, 33
-      );
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+      const pageW = 210, pageH = 297;
+      const monthName = new Date(0, selectedMonth - 1).toLocaleString('default', { month: 'long' });
+      const logoB64 = await loadLogo();
 
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(10);
-      doc.text(`Total Staff: ${data.staff.length}`, 14, 50);
-      doc.text(`Paid: ${data.staff.filter(e => e.status === 'Paid').length}`, 70, 50);
-      doc.text(`Pending: ${data.staff.filter(e => e.status !== 'Paid').length}`, 110, 50);
-      doc.text(`Total Payout: Rs. ${totalPayroll.toLocaleString()}`, 150, 50);
+      let y = drawHeader(doc, { logoB64, docType: 'Payroll Report', docRef: `${monthName} ${selectedYear}`, date: fmtDate(new Date()), pageW });
+      y += 6;
 
+      y = drawSection(doc, 'Payroll Summary', y, { pageW });
+      drawInfoGrid(doc, [
+        ['Total Staff',  data.staff.length],
+        ['Total Payout', fmtRs(totalPayroll)],
+        ['Paid',         data.staff.filter(e => e.status === 'Paid').length],
+        ['Pending',      data.staff.filter(e => e.status !== 'Paid').length],
+        ['Base Salaries', fmtRs(totalBaseSalary)],
+        ['Commissions',   fmtRs(totalCommissions)],
+      ], y, { colW: 90 });
+      y += Math.ceil(6 / 2) * 6.5 + 8;
+
+      y = drawSection(doc, 'Staff Payroll Detail', y, { pageW });
       autoTable(doc, {
-        startY: 58,
+        startY: y,
+        margin: { left: 14, right: 14 },
         head: [['Employee', 'Role', 'Base Salary', 'Commission', 'Total Payout', 'Status']],
         body: data.staff.map(e => [
           e.name,
           e.role.replace('_', ' '),
-          `Rs. ${e.salary.toLocaleString()}`,
-          e.commission_earned > 0 ? `Rs. ${e.commission_earned.toLocaleString()}` : '—',
-          `Rs. ${(e.total_payout || e.salary).toLocaleString()}`,
-          e.status === 'Paid' ? `Paid (${new Date(e.paid_date).toLocaleDateString()})` : 'Pending'
+          { content: fmtRs(e.salary), styles: { halign: 'right' } },
+          { content: e.commission_earned > 0 ? fmtRs(e.commission_earned) : '—', styles: { halign: 'right' } },
+          { content: fmtRs(e.total_payout || e.salary), styles: { halign: 'right', fontStyle: 'bold' } },
+          { content: e.status === 'Paid' ? 'Paid ✓' : 'Pending', styles: { textColor: e.status === 'Paid' ? C.green : C.amber, fontStyle: 'bold' } },
         ]),
-        theme: 'grid',
-        headStyles: { fillColor: [15, 23, 42] },
-        alternateRowStyles: { fillColor: [248, 250, 252] }
+        ...TABLE_STYLES,
+        columnStyles: { 2: { halign:'right' }, 3: { halign:'right' }, 4: { halign:'right' } },
       });
 
-      const finalY = doc.lastAutoTable.finalY + 12;
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Base Salaries: Rs. ${totalBaseSalary.toLocaleString()}`, 14, finalY);
-      doc.text(`Commissions: Rs. ${totalCommissions.toLocaleString()}`, 80, finalY);
-      doc.setFontSize(12);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont(undefined, 'bold');
-      doc.text(`Grand Total: Rs. ${totalPayroll.toLocaleString()}`, 14, finalY + 10);
+      const afterTable = doc.lastAutoTable.finalY + 8;
+      drawSummaryBox(doc, [
+        { label: 'Base Salaries', value: fmtRs(totalBaseSalary) },
+        { label: 'Commissions',   value: fmtRs(totalCommissions), color: C.amber },
+        { label: 'GRAND TOTAL',   value: fmtRs(totalPayroll), bold: true, large: true, color: C.navy },
+      ], afterTable, { pageW });
 
-      doc.save(`Payroll_${selectedMonth}_${selectedYear}.pdf`);
+      drawFooter(doc, { pageNum: 1, totalPages: 1, pageW, pageH });
+      doc.save(`Payroll_${monthName}_${selectedYear}.pdf`);
       toast.success('Payroll PDF downloaded!');
     } catch (error) { console.error(error); toast.error('PDF generation failed'); }
   };
@@ -582,7 +536,7 @@ const Finance = () => {
         </div>
 
         <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-lg">
-          <div className="flex items-center gap-2 mb-2 text-slate-400"><DollarSign size={16}/><span className="text-xs font-bold uppercase tracking-wide">Net Profit</span></div>
+          <div className="flex items-center gap-2 mb-2 text-slate-400"><RupeeIcon size={16}/><span className="text-xs font-bold uppercase tracking-wide">Net Profit</span></div>
           <p className={`text-3xl font-extrabold ${(data.stats?.profit || 0) >= 0 ? 'text-indigo-600' : 'text-rose-600'}`}>
             Rs. {(data.stats?.profit || 0).toLocaleString()}
           </p>
@@ -720,7 +674,7 @@ const Finance = () => {
                         {student.status === 'Unpaid' && (
                           <>
                             <button onClick={() => openCollectModal(student)} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all flex items-center gap-1.5">
-                              <DollarSign size={13}/> Collect
+                              <RupeeIcon size={13}/> Collect
                             </button>
                             <button onClick={() => sendWhatsAppReminder(student)} className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-bold text-xs shadow-lg shadow-emerald-100 hover:bg-emerald-600 transition-all flex items-center gap-1.5">
                               <MessageCircle size={13}/> WhatsApp
@@ -1142,7 +1096,7 @@ const Finance = () => {
           <div className="bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-indigo-50">
               <div>
-                <h3 className="text-xl font-extrabold text-slate-800 flex items-center gap-2"><DollarSign className="text-indigo-500"/> Collect Fee</h3>
+                <h3 className="text-xl font-extrabold text-slate-800 flex items-center gap-2"><RupeeIcon className="text-indigo-500"/> Collect Fee</h3>
                 <p className="text-sm text-slate-500 mt-0.5">{collectTarget.name} • {collectTarget.roll_no}</p>
               </div>
               <button onClick={() => setShowCollectModal(false)} className="p-2 rounded-full hover:bg-rose-100 hover:text-rose-600 transition-colors"><X size={20}/></button>

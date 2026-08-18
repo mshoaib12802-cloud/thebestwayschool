@@ -4,6 +4,7 @@ import { FileText, CheckCircle2, AlertCircle, Clock, Download, AlertTriangle, Me
 import { Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { loadLogo, drawHeader, drawFooter, drawSection, drawSummaryBox, TABLE_STYLES, C, fmtRs, fmtDate as kitDate } from '../../utils/pdfKit';
 
 const STATUS_COLORS = {
   draft:   'bg-slate-100 text-slate-600',
@@ -21,97 +22,94 @@ const STATUS_ICONS = {
   overdue: AlertTriangle,
 };
 
-const fmt = (n) => `Rs. ${Number(n || 0).toLocaleString()}`;
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+const fmt = fmtRs;
+const fmtDate = kitDate;
 
-const downloadInvoicePdf = (inv, clientName) => {
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-  const W = 210;
+const downloadInvoicePdf = async (inv, clientName) => {
+  const doc     = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageW   = 210, pageH = 297;
+  const logoB64 = await loadLogo();
+  const balance = (inv.total || 0) - (inv.paid_amount || 0);
+  const statusLabel = (inv.status || 'draft').toUpperCase();
 
-  doc.setFillColor(180, 83, 9);
-  doc.rect(0, 0, W, 38, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(18);
-  doc.text('INFLORESCENCE ADVANCE SKILLS', 14, 14);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Services Invoice', 14, 22);
+  let y = drawHeader(doc, {
+    logoB64,
+    docType:  'Services Invoice',
+    docRef:   inv.invoice_no || 'INV-XXXX',
+    date:     `Issued: ${fmtDate(inv.issue_date)}  ·  Due: ${fmtDate(inv.due_date)}`,
+    pageW,
+  });
+  y += 4;
 
-  doc.setFontSize(22);
-  doc.setFont('helvetica', 'bold');
-  doc.text(inv.invoice_no || 'INVOICE', W - 14, 22, { align: 'right' });
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`Issued: ${fmtDate(inv.issue_date)}`, W - 14, 30, { align: 'right' });
-  doc.text(`Due: ${fmtDate(inv.due_date)}`, W - 14, 36, { align: 'right' });
+  // Billed To + Status side by side
+  doc.setFillColor(...C.offWhite);
+  doc.roundedRect(14, y, 100, 22, 2, 2, 'F');
+  doc.setDrawColor(...C.gold);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(14, y, 100, 22, 2, 2, 'S');
+  doc.setFillColor(...C.gold);
+  doc.roundedRect(14, y, 3, 22, 1, 1, 'F');
 
-  doc.setTextColor(30, 30, 30);
-  doc.setFillColor(248, 250, 252);
-  doc.rect(14, 46, 80, 24, 'F');
-  doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(100, 100, 100);
-  doc.text('BILLED TO', 18, 53);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(30, 30, 30);
+  doc.setFontSize(6.5);
+  doc.setTextColor(...C.slateLight);
+  doc.text('BILLED TO', 20, y + 6);
   doc.setFontSize(11);
-  doc.text(clientName || 'Client', 18, 60);
-  doc.setFontSize(9);
+  doc.setTextColor(...C.navy);
+  doc.text(clientName || 'Client', 20, y + 13);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 100, 100);
-  doc.text(inv.title || '', 18, 67);
+  doc.setTextColor(...C.slate);
+  doc.text(inv.title || '', 20, y + 19);
 
-  const statusColor = inv.status === 'paid' ? [16, 185, 129] : inv.status === 'overdue' ? [239, 68, 68] : [180, 83, 9];
-  doc.setFillColor(...statusColor);
-  doc.roundedRect(W - 14 - 35, 46, 35, 12, 3, 3, 'F');
-  doc.setTextColor(255, 255, 255);
+  // Status badge
+  const badgeColor = inv.status === 'paid' ? C.green : inv.status === 'overdue' ? C.red : C.amber;
+  doc.setFillColor(...badgeColor);
+  doc.roundedRect(pageW - 44, y + 5, 30, 10, 2, 2, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text((inv.status || '').toUpperCase(), W - 14 - 17.5, 54, { align: 'center' });
+  doc.setFontSize(8);
+  doc.setTextColor(...C.white);
+  doc.text(statusLabel, pageW - 29, y + 11.5, { align: 'center' });
 
+  y += 28;
+
+  // Line items
+  y = drawSection(doc, 'Services & Items', y, { pageW });
   autoTable(doc, {
-    startY: 78,
-    head: [['#', 'Description', 'Qty', 'Unit Price', 'Total']],
-    body: (inv.items || []).map((item, i) => [
-      i + 1, item.description, item.quantity,
-      `Rs. ${Number(item.unit_price).toLocaleString()}`,
-      `Rs. ${Number(item.total).toLocaleString()}`,
-    ]),
-    headStyles: { fillColor: [180, 83, 9], textColor: 255, fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [250, 250, 250] },
-    columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+    startY: y,
     margin: { left: 14, right: 14 },
+    head: [['#', 'Description', 'Qty', 'Unit Price (Rs.)', 'Total (Rs.)']],
+    body: (inv.items || []).map((item, i) => [
+      i + 1,
+      item.description,
+      { content: item.quantity, styles: { halign: 'center' } },
+      { content: fmtRs(item.unit_price), styles: { halign: 'right' } },
+      { content: fmtRs(item.total), styles: { halign: 'right', fontStyle: 'bold' } },
+    ]),
+    ...TABLE_STYLES,
+    columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'center' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
   });
 
-  const finalY = doc.lastAutoTable.finalY + 8;
-  const rightX = W - 14;
+  const afterTable = doc.lastAutoTable.finalY + 8;
 
-  doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text('Subtotal:', rightX - 60, finalY); doc.text(`Rs. ${Number(inv.subtotal).toLocaleString()}`, rightX, finalY, { align: 'right' });
-  if (inv.tax_pct > 0) {
-    doc.text(`Tax (${inv.tax_pct}%):`, rightX - 60, finalY + 6); doc.text(`Rs. ${Number(inv.tax_amount).toLocaleString()}`, rightX, finalY + 6, { align: 'right' });
-  }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(30, 30, 30);
-  doc.text('Total:', rightX - 60, finalY + 14); doc.text(`Rs. ${Number(inv.total).toLocaleString()}`, rightX, finalY + 14, { align: 'right' });
-  if (inv.paid_amount > 0) {
-    doc.setTextColor(16, 185, 129);
-    doc.text('Paid:', rightX - 60, finalY + 21); doc.text(`Rs. ${Number(inv.paid_amount).toLocaleString()}`, rightX, finalY + 21, { align: 'right' });
-    const balance = inv.total - inv.paid_amount;
-    doc.setTextColor(balance > 0 ? 239 : 16, balance > 0 ? 68 : 185, balance > 0 ? 68 : 129);
-    doc.text('Balance Due:', rightX - 60, finalY + 28); doc.text(`Rs. ${Number(balance).toLocaleString()}`, rightX, finalY + 28, { align: 'right' });
-  }
+  const summaryLines = [
+    { label: 'Subtotal',  value: fmtRs(inv.subtotal || inv.total) },
+    ...(inv.tax_pct > 0 ? [{ label: `Tax (${inv.tax_pct}%)`, value: fmtRs(inv.tax_amount), color: C.amber }] : []),
+    { label: 'Invoice Total',  value: fmtRs(inv.total), bold: true },
+    ...(inv.paid_amount > 0 ? [{ label: 'Paid', value: fmtRs(inv.paid_amount), color: C.green }] : []),
+    { label: 'BALANCE DUE', value: fmtRs(balance), bold: true, large: true, color: balance > 0 ? C.red : C.green },
+  ];
+  drawSummaryBox(doc, summaryLines, afterTable, { pageW });
 
   if (inv.notes) {
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(100, 100, 100);
-    doc.text('Note: ' + inv.notes, 14, finalY + 14);
+    const notesY = afterTable + summaryLines.length * 7 + 20;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(...C.slateLight);
+    doc.text('Note: ' + inv.notes, 14, notesY);
   }
 
+  drawFooter(doc, { pageNum: 1, totalPages: 1, pageW, pageH });
   doc.save(`${inv.invoice_no || 'Invoice'}.pdf`);
 };
 

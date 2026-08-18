@@ -1,21 +1,19 @@
 const mongoose = require('mongoose');
+const bcrypt   = require('bcryptjs');
 
 const seedAdmin = async () => {
-  const User = require('../models/User');
+  const User     = require('../models/User');
   const EMAIL    = process.env.ADMIN_EMAIL    || 'admin@inflorescence.com';
   const PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
   const existing = await User.findOne({ role: 'admin' });
 
   if (existing) {
-    // Migrate old email if it hasn't been updated yet
-    if (existing.email !== EMAIL) {
-      existing.email = EMAIL;
-      await existing.save();
-      console.log(`✅  Admin email updated to: ${EMAIL}`);
-    } else {
-      console.log(`ℹ️  Admin already exists (${existing.email}) — skipping seed.`);
-    }
+    // Always reset email + password to whatever is in env so the admin can never be locked out
+    const salt   = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(PASSWORD, salt);
+    await User.updateOne({ _id: existing._id }, { email: EMAIL, password: hashed });
+    console.log(`✅  Admin synced — Email: ${EMAIL}`);
     return;
   }
 

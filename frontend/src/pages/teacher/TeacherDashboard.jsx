@@ -69,7 +69,7 @@ export default function TeacherDashboard() {
   const todayDate    = new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long' });
   const todayClasses = timetable
     .filter(e => e.day_of_week === todayName && e.subject_id)
-    .sort((a, b) => (a.period_id?.sort_order || 0) - (b.period_id?.sort_order || 0));
+    .sort((a, b) => (a.period_id?.order || 0) - (b.period_id?.order || 0));
 
   const myClassIds     = [...new Set(timetable.map(e => e.class_id?._id).filter(Boolean))];
   const myClassCount   = myClassIds.length;

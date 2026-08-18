@@ -80,6 +80,10 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    // Vite 5.4+ validates the Host header. Behind a reverse proxy the incoming
+    // host is the public domain, which must be listed here or requests are refused.
+    allowedHosts: (process.env.VITE_ALLOWED_HOSTS || 'localhost')
+      .split(',').map(h => h.trim()).filter(Boolean),
     proxy: {
       '/api': {
         target: process.env.VITE_API_URL || 'http://localhost:5000',
