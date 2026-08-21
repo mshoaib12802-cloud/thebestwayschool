@@ -9,11 +9,18 @@ const seedAdmin = async () => {
   const existing = await User.findOne({ role: 'admin' });
 
   if (existing) {
-    // Always reset email + password to whatever is in env so the admin can never be locked out
+    // A password changed from the UI must survive restarts, so don't touch an
+    // admin that already exists. Set ADMIN_FORCE_SYNC=1 for one boot to reset
+    // the credentials from env if you ever get locked out.
+    if (process.env.ADMIN_FORCE_SYNC !== '1') {
+      console.log(`✅  Admin exists — ${existing.email} (unchanged)`);
+      return;
+    }
+
     const salt   = await bcrypt.genSalt(10);
     const hashed = await bcrypt.hash(PASSWORD, salt);
     await User.updateOne({ _id: existing._id }, { email: EMAIL, password: hashed });
-    console.log(`✅  Admin synced — Email: ${EMAIL}`);
+    console.log(`⚠️  ADMIN_FORCE_SYNC=1 — admin reset from env: ${EMAIL}`);
     return;
   }
 

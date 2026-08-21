@@ -139,14 +139,21 @@ se static files serve karna, aur `/api` + `/uploads` ka proxy Vite se nikaal kar
 us nginx layer (ya host nginx) mein le jaana. Agar ye kabhi karo to `deploy/`
 wali nginx config bhi sath update karni hogi.
 
-## Seed ka masla
+## Seed aur admin password
 
-`backend/entrypoint.sh` **har container start pe** `src/seedAll.js` chalata hai.
-Seed idempotent hai (kuch delete nahi karta) lekin:
+Do jagah admin password reset hota tha — dono ab env flags ke peeche hain:
 
-- Admin ka password wapas `ADMIN_SEED_PASSWORD` pe reset kar deta hai — matlab
-  UI se badla hua password har restart pe ur jata hai
-- Demo teachers, demo students, farzi fee invoices aur attendance banata hai
+| Flag | Kya karta hai |
+|---|---|
+| `SKIP_SEED=1` | `entrypoint.sh` ko `seedAll.js` chalane se rokta hai (demo teachers/students/invoices) |
+| `ADMIN_FORCE_SYNC=1` | `src/config/db.js` ko admin ka email+password `.env` se reset karne deta hai |
 
-Live school data dalne se pehle seed ko band karna zaroori hai. Ek env flag
-(jaise `SKIP_SEED=1`) laga kar `entrypoint.sh` mein guard karna sabse aasan hai.
+Default behaviour ab ye hai: **agar admin pehle se mojood hai to usay haath nahi
+lagta**, chahe `ADMIN_PASSWORD` mein kuch bhi ho. Isi liye UI se badla hua
+password restart pe salamat rehta hai.
+
+Kisi bhi live deployment pe `backend/.env` mein `SKIP_SEED=1` hona chahiye.
+
+**Lockout se nikalne ka tareeqa:** `backend/.env` mein `ADMIN_PASSWORD` set karo,
+`ADMIN_FORCE_SYNC=1` karo, `docker-compose up -d backend` chalao, login karo,
+phir flag wapas `0` kar ke dobara restart karo.

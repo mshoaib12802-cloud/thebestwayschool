@@ -27,9 +27,15 @@ done
 echo "✅ MongoDB is ready!"
 echo ""
 
-# Run full seed (creates admin + test data if not already seeded)
-echo "🌱 Running database seed..."
-node src/seedAll.js
+# Run full seed (creates admin + test data if not already seeded).
+# Set SKIP_SEED=1 once a deployment holds real data — the seed also resets the
+# admin password and re-creates demo teachers/students on every restart.
+if [ "$SKIP_SEED" = "1" ]; then
+  echo "⏭  SKIP_SEED=1 — database seed skipped"
+else
+  echo "🌱 Running database seed..."
+  node src/seedAll.js
+fi
 
 echo ""
 echo "🚀 Starting server..."
