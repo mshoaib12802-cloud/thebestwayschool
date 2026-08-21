@@ -25,3 +25,6 @@ npm-debug.log*
 frontend/dist/
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Server-specific compose overrides (container names, ports)
+docker-compose.override.yml
