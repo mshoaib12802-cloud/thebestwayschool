@@ -373,7 +373,7 @@ export default function FeeStructure() {
                   <div className="text-right">
                     <div className="text-xs text-slate-400">Monthly Total</div>
                     <div className="text-xl font-bold text-sky-700">
-                      Rs. {(structure.items || []).reduce((s, i) => s + (i.amount || 0), 0).toLocaleString()}
+                      Rs. {sumMonthly(structure.items).toLocaleString()}
                     </div>
                   </div>
                   <button onClick={openStructureModal}
