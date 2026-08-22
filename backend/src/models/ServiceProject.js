@@ -22,7 +22,9 @@ const ServiceProjectSchema = new mongoose.Schema({
   deadline:             { type: Date },
   budget:               { type: Number, default: 0 },
   paid_amount:          { type: Number, default: 0 },
-  currency:             { type: String, enum: ['PKR', 'USD'], default: 'PKR' },
+  // Single-currency deployment (PKR only). No enum: legacy docs may still
+  // carry 'USD' and would fail validation on their next save.
+  currency:             { type: String, default: 'PKR' },
   assigned_to:          [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   milestones:           [MilestoneSchema],
   is_visible_to_client: { type: Boolean, default: true },

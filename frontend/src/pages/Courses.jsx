@@ -3,11 +3,12 @@ import api from '../services/api';
 import { toast } from 'react-toastify';
 import { confirm } from '../utils/confirm';
 import {
-  BookOpen, Plus, Edit2, Trash2, X, DollarSign, Clock,
+  BookOpen, Plus, Edit2, Trash2, X, Clock,
   Layers, CheckCircle2, Play, ChevronUp, ChevronDown,
   RotateCcw, FileText, Link2, AlertTriangle, Pencil, Save,
   ArrowRight, BarChart2, TrendingUp, Users
 } from 'lucide-react';
+import RupeeIcon from '../components/RupeeIcon';
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine
@@ -898,7 +899,7 @@ const Courses = () => {
                 </div>
               </div>
               <button type="submit" className="w-full bg-violet-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-violet-200 hover:bg-violet-700 transition-all flex items-center justify-center gap-2">
-                <DollarSign size={18}/> {editId ? 'Save Changes' : 'Create Course'}
+                <RupeeIcon size={18}/> {editId ? 'Save Changes' : 'Create Course'}
               </button>
             </form>
           </div>

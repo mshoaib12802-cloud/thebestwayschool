@@ -182,7 +182,7 @@ function ProjectForm({ clients, staffList, initial = {}, onSave, onClose, loadin
           { value: 'low', label: 'Low' }, { value: 'medium', label: 'Medium' }, { value: 'high', label: 'High' }, { value: 'urgent', label: 'Urgent' },
         ]}/>
         <Select label="Currency" value={form.currency} onChange={set('currency')} options={[
-          { value: 'PKR', label: 'PKR' }, { value: 'USD', label: 'USD' },
+          { value: 'PKR', label: 'PKR' },
         ]}/>
         <Input label="Budget" value={form.budget} onChange={set('budget')} type="number"/>
         <Input label="Start Date" value={form.start_date} onChange={set('start_date')} type="date"/>

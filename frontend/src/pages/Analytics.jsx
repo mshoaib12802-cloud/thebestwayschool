@@ -20,7 +20,7 @@ const GRADE_COLORS = {
 };
 
 const fmt = (n) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
-const fmtPKR = (n) => n >= 1000000 ? `Rs.${(n/1000000).toFixed(1)}M` : n >= 1000 ? `Rs.${(n/1000).toFixed(0)}k` : `Rs.${n}`;
+const fmtPKR = (n) => n >= 1000000 ? `Rs. ${(n/1000000).toFixed(1)}M` : n >= 1000 ? `Rs. ${(n/1000).toFixed(0)}k` : `Rs. ${n}`;
 
 const ChartTooltipStyle = {
   background: '#fff', border: '1px solid #e2e8f0',

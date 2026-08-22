@@ -5,9 +5,10 @@ import {
   UtensilsCrossed, Plus, Edit2, Trash2, X, Search,
   ChevronDown, Save, RefreshCw, FileText, Coffee,
   Sandwich, Cookie, Droplets, Tag, CheckCircle2,
-  AlertCircle, Clock, TrendingUp, Users, DollarSign,
+  AlertCircle, Clock, TrendingUp, Users,
   Download, Send,
 } from 'lucide-react';
+import RupeeIcon from '../components/RupeeIcon';
 
 const inputCls  = 'w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 outline-none focus:border-indigo-400 focus:bg-white transition-colors';
 const labelCls  = 'block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1';
@@ -103,7 +104,7 @@ function MenuTab() {
                     {!it.is_active && <span className="text-xs text-slate-400 font-medium">Inactive</span>}
                   </div>
                 </div>
-                <p className="text-lg font-extrabold text-indigo-600 whitespace-nowrap">Rs {it.price?.toLocaleString()}</p>
+                <p className="text-lg font-extrabold text-indigo-600 whitespace-nowrap">Rs. {it.price?.toLocaleString()}</p>
               </div>
               {it.description && <p className="text-xs text-slate-500">{it.description}</p>}
               <div className="flex flex-wrap gap-1">
@@ -226,7 +227,7 @@ function ChargesTab() {
     const newAmts = {};
     students.forEach(s => { newAmts[s.student_id] = bulkAmount; });
     setAmounts(newAmts);
-    toast.success(`Applied Rs ${bulkAmount} to all students`);
+    toast.success(`Applied Rs. ${bulkAmount} to all students`);
   };
 
   const saveAll = async () => {
@@ -322,7 +323,7 @@ function ChargesTab() {
       {students.length > 0 && (
         <div className="flex items-center justify-between mb-4">
           <p className="text-sm font-semibold text-slate-600">{students.length} student{students.length !== 1 ? 's' : ''} loaded</p>
-          <p className="text-sm font-bold text-indigo-700">Total: Rs {totalAmount.toLocaleString()}</p>
+          <p className="text-sm font-bold text-indigo-700">Total: Rs. {totalAmount.toLocaleString()}</p>
         </div>
       )}
 
@@ -432,7 +433,7 @@ function ReportTab() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {[
               { label: 'Total Students', value: report.summary.total_students, icon: <Users size={20}/>, color: 'indigo' },
-              { label: 'Total Amount',   value: `Rs ${report.summary.total_amount?.toLocaleString()}`, icon: <DollarSign size={20}/>, color: 'green' },
+              { label: 'Total Amount',   value: `Rs. ${report.summary.total_amount?.toLocaleString()}`, icon: <RupeeIcon size={20}/>, color: 'green' },
               { label: 'Invoiced',       value: report.summary.invoiced,       icon: <CheckCircle2 size={20}/>, color: 'blue' },
               { label: 'Pending',        value: report.summary.pending,        icon: <AlertCircle size={20}/>,  color: 'amber' },
             ].map(c => (
@@ -451,7 +452,7 @@ function ReportTab() {
                 <h4 className="font-bold text-slate-700">{cls.class_name}</h4>
                 <div className="flex items-center gap-4 text-sm">
                   <span className="text-slate-500">{cls.students.length} students</span>
-                  <span className="font-bold text-indigo-700">Rs {cls.total?.toLocaleString()}</span>
+                  <span className="font-bold text-indigo-700">Rs. {cls.total?.toLocaleString()}</span>
                 </div>
               </div>
               <table className="w-full text-sm">
@@ -469,7 +470,7 @@ function ReportTab() {
                     <tr key={s._id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/50">
                       <td className="px-5 py-2.5 font-semibold text-slate-800">{s.student_id?.full_name || '—'}</td>
                       <td className="px-5 py-2.5 text-slate-500 hidden sm:table-cell">{s.student_id?.roll_number || '—'}</td>
-                      <td className="px-5 py-2.5 font-bold text-slate-800">Rs {s.amount?.toLocaleString()}</td>
+                      <td className="px-5 py-2.5 font-bold text-slate-800">Rs. {s.amount?.toLocaleString()}</td>
                       <td className="px-5 py-2.5">{statusBadge(s.status)}</td>
                       <td className="px-5 py-2.5 text-slate-500 hidden md:table-cell">{s.notes || '—'}</td>
                     </tr>
@@ -489,7 +490,7 @@ export default function Canteen() {
   const [tab, setTab] = useState('charges');
 
   const tabs = [
-    { key: 'charges', label: 'Monthly Charges', icon: <DollarSign size={16}/> },
+    { key: 'charges', label: 'Monthly Charges', icon: <RupeeIcon size={16}/> },
     { key: 'menu',    label: 'Menu Items',       icon: <UtensilsCrossed size={16}/> },
     { key: 'report',  label: 'Monthly Report',   icon: <TrendingUp size={16}/> },
   ];

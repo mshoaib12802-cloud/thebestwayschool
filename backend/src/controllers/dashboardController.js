@@ -266,7 +266,7 @@ const getAtRiskStudents = async (req, res) => {
         const admitDate  = new Date(s.admission_date || 0);
         const daysSince  = Math.floor((now - admitDate) / 86400000);
         if (daysSince >= 30 || feeInfo.count > 1) {
-          reasons.push({ type: 'fee', label: `Rs.${feeInfo.balance.toLocaleString()} due`, balance: feeInfo.balance });
+          reasons.push({ type: 'fee', label: `Rs. ${feeInfo.balance.toLocaleString()} due`, balance: feeInfo.balance });
         }
       }
 

@@ -97,7 +97,7 @@ async function notifyAbsence({ studentName, className, date, parentPhone }) {
  */
 async function notifyFeeDue({ studentName, amount, dueDate, parentPhone }) {
   const d = new Date(dueDate).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
-  const msg = `Dear Parent, Fee of Rs.${amount} for ${studentName} is due by ${d}. Please pay to avoid late fine. - Inflorescence`;
+  const msg = `Dear Parent, Fee of Rs. ${amount} for ${studentName} is due by ${d}. Please pay to avoid late fine. - Inflorescence`;
   if (parentPhone) {
     await sendSMS(parentPhone, msg);
     await sendWhatsApp(parentPhone, msg);
@@ -119,7 +119,7 @@ async function notifyResult({ studentName, term, percentage, parentPhone }) {
  * Notify about fine issued
  */
 async function notifyFine({ studentName, amount, reason, parentPhone }) {
-  const msg = `Dear Parent, A fine of Rs.${amount} has been issued for ${studentName} (${reason}). Please pay promptly. - Inflorescence`;
+  const msg = `Dear Parent, A fine of Rs. ${amount} has been issued for ${studentName} (${reason}). Please pay promptly. - Inflorescence`;
   if (parentPhone) {
     await sendSMS(parentPhone, msg);
     await sendWhatsApp(parentPhone, msg);

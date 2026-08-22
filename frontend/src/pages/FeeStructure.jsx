@@ -367,7 +367,7 @@ export default function FeeStructure() {
                   <div className="text-right">
                     <div className="text-xs text-slate-400">Monthly Total</div>
                     <div className="text-xl font-bold text-sky-700">
-                      ₹{(structure.items || []).reduce((s, i) => s + (i.amount || 0), 0).toLocaleString()}
+                      Rs. {(structure.items || []).reduce((s, i) => s + (i.amount || 0), 0).toLocaleString()}
                     </div>
                   </div>
                   <button onClick={openStructureModal}
@@ -387,7 +387,7 @@ export default function FeeStructure() {
                       <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
                         <th className="text-left px-5 py-3">Fee Head</th>
                         <th className="text-left px-5 py-3">Type</th>
-                        <th className="text-right px-5 py-3">Amount (₹)</th>
+                        <th className="text-right px-5 py-3">Amount (Rs.)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
@@ -404,7 +404,7 @@ export default function FeeStructure() {
                             )}
                           </td>
                           <td className="px-5 py-3 text-right font-bold text-slate-800">
-                            ₹{(item.amount || 0).toLocaleString()}
+                            Rs. {(item.amount || 0).toLocaleString()}
                           </td>
                         </tr>
                       ))}
@@ -413,7 +413,7 @@ export default function FeeStructure() {
                       <tr className="bg-sky-50">
                         <td colSpan={2} className="px-5 py-3 font-bold text-slate-700">Total per Month</td>
                         <td className="px-5 py-3 text-right font-bold text-sky-700 text-base">
-                          ₹{(structure.items || []).reduce((s, i) => s + (i.amount || 0), 0).toLocaleString()}
+                          Rs. {(structure.items || []).reduce((s, i) => s + (i.amount || 0), 0).toLocaleString()}
                         </td>
                       </tr>
                     </tfoot>
@@ -476,19 +476,19 @@ export default function FeeStructure() {
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
                   <div className="text-2xl font-bold text-emerald-600">
-                    ₹{Math.max(...allStructures.map(s => s.items?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0)).toLocaleString()}
+                    Rs. {Math.max(...allStructures.map(s => s.items?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0)).toLocaleString()}
                   </div>
                   <div className="text-xs text-slate-500 font-semibold mt-0.5">Highest Monthly Fee</div>
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
                   <div className="text-2xl font-bold text-amber-600">
-                    ₹{Math.min(...allStructures.map(s => s.items?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0)).toLocaleString()}
+                    Rs. {Math.min(...allStructures.map(s => s.items?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0)).toLocaleString()}
                   </div>
                   <div className="text-xs text-slate-500 font-semibold mt-0.5">Lowest Monthly Fee</div>
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
                   <div className="text-2xl font-bold text-slate-700">
-                    ₹{Math.round(allStructures.reduce((sum, s) => sum + (s.items?.reduce((si, i) => si + (i.amount || 0), 0) || 0), 0) / allStructures.length).toLocaleString()}
+                    Rs. {Math.round(allStructures.reduce((sum, s) => sum + (s.items?.reduce((si, i) => si + (i.amount || 0), 0) || 0), 0) / allStructures.length).toLocaleString()}
                   </div>
                   <div className="text-xs text-slate-500 font-semibold mt-0.5">Average Monthly Fee</div>
                 </div>
@@ -535,7 +535,7 @@ export default function FeeStructure() {
                             </td>
                             <td className="px-5 py-3 text-slate-500">Day {s.due_day}</td>
                             <td className="px-5 py-3 text-right font-bold text-sky-700">
-                              ₹{total.toLocaleString()}
+                              Rs. {total.toLocaleString()}
                             </td>
                             <td className="px-5 py-3 text-right">
                               <button
@@ -662,7 +662,7 @@ export default function FeeStructure() {
                             <div className="text-xs text-slate-400">{item.is_recurring ? 'Monthly' : 'One-time'}</div>
                           </div>
                           <div className="flex items-center gap-1">
-                            <span className="text-slate-500 text-sm font-semibold">₹</span>
+                            <span className="text-slate-500 text-sm font-semibold">Rs.</span>
                             <input
                               type="number" min="0" step="0.01"
                               value={item.amount}
@@ -684,7 +684,7 @@ export default function FeeStructure() {
                   <div className="bg-sky-600 rounded-xl p-3 flex items-center justify-between text-white">
                     <span className="font-semibold text-sm">Monthly Total</span>
                     <span className="font-bold text-lg">
-                      ₹{structureItems
+                      Rs. {structureItems
                         .filter(i => i.amount !== '')
                         .reduce((s, i) => s + (parseFloat(i.amount) || 0), 0)
                         .toLocaleString()}

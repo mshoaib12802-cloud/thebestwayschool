@@ -177,7 +177,7 @@ const getAllProjects = async (req, res) => {
 // POST /api/clients/projects
 const createProject = async (req, res) => {
   try {
-    const { client_id, title, description, service_type, status, priority, start_date, deadline, budget, currency, assigned_to, client_notes, internal_notes } = req.body;
+    const { client_id, title, description, service_type, status, priority, start_date, deadline, budget, assigned_to, client_notes, internal_notes } = req.body;
     if (!client_id || !title) return res.status(400).json({ message: 'Client and title are required' });
 
     const project = await ServiceProject.create({
@@ -187,7 +187,7 @@ const createProject = async (req, res) => {
       priority: priority || 'medium',
       start_date, deadline,
       budget: Number(budget) || 0,
-      currency: currency || 'PKR',
+      currency: 'PKR',
       assigned_to: assigned_to || [],
       client_notes: client_notes || '',
       internal_notes: internal_notes || '',
@@ -205,7 +205,7 @@ const createProject = async (req, res) => {
 // PUT /api/clients/projects/:id
 const updateProject = async (req, res) => {
   try {
-    const allowed = ['title', 'description', 'service_type', 'status', 'priority', 'start_date', 'deadline', 'budget', 'paid_amount', 'currency', 'assigned_to', 'is_visible_to_client', 'client_notes', 'internal_notes'];
+    const allowed = ['title', 'description', 'service_type', 'status', 'priority', 'start_date', 'deadline', 'budget', 'paid_amount', 'assigned_to', 'is_visible_to_client', 'client_notes', 'internal_notes'];
     const update = {};
     allowed.forEach(k => { if (req.body[k] !== undefined) update[k] = req.body[k]; });
 

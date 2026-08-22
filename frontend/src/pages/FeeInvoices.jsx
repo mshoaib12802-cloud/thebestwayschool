@@ -149,9 +149,9 @@ export default function FeeInvoices() {
       {invoices.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
-            { label: 'Total Invoiced',  value: `₹${totalAmt.toLocaleString()}`,  color: 'slate',   icon: Receipt },
-            { label: 'Collected',       value: `₹${collected.toLocaleString()}`,  color: 'emerald', icon: CheckCircle2 },
-            { label: 'Outstanding',     value: `₹${pending.toLocaleString()}`,    color: 'red',     icon: AlertTriangle },
+            { label: 'Total Invoiced',  value: `Rs. ${totalAmt.toLocaleString()}`,  color: 'slate',   icon: Receipt },
+            { label: 'Collected',       value: `Rs. ${collected.toLocaleString()}`,  color: 'emerald', icon: CheckCircle2 },
+            { label: 'Outstanding',     value: `Rs. ${pending.toLocaleString()}`,    color: 'red',     icon: AlertTriangle },
             { label: 'Overdue',         value: overdueCount,                       color: 'orange',  icon: Clock },
             { label: 'Collection Rate', value: `${collectionRate}%`,              color: 'sky',     icon: TrendingUp },
           ].map(s => (
@@ -284,13 +284,13 @@ export default function FeeInvoices() {
                       <td className="px-4 py-3 text-slate-500">{rollNo(inv)}</td>
                       <td className="px-4 py-3 text-slate-600">{fmt(inv.month)}</td>
                       <td className="px-4 py-3 text-right font-bold text-slate-700">
-                        ₹{(inv.total_amount || 0).toLocaleString()}
+                        Rs. {(inv.total_amount || 0).toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-right text-emerald-600 font-semibold">
-                        ₹{(inv.paid_amount || 0).toLocaleString()}
+                        Rs. {(inv.paid_amount || 0).toLocaleString()}
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-red-600">
-                        ₹{(inv.balance || 0).toLocaleString()}
+                        Rs. {(inv.balance || 0).toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${meta.cls}`}>
@@ -341,15 +341,15 @@ export default function FeeInvoices() {
               {/* Summary Chips */}
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-slate-50 rounded-xl p-3 text-center">
-                  <div className="text-base font-bold text-slate-700">₹{(selectedInvoice.total_amount || 0).toLocaleString()}</div>
+                  <div className="text-base font-bold text-slate-700">Rs. {(selectedInvoice.total_amount || 0).toLocaleString()}</div>
                   <div className="text-[10px] text-slate-400 font-bold uppercase">Total</div>
                 </div>
                 <div className="bg-emerald-50 rounded-xl p-3 text-center">
-                  <div className="text-base font-bold text-emerald-600">₹{(selectedInvoice.paid_amount || 0).toLocaleString()}</div>
+                  <div className="text-base font-bold text-emerald-600">Rs. {(selectedInvoice.paid_amount || 0).toLocaleString()}</div>
                   <div className="text-[10px] text-slate-400 font-bold uppercase">Paid</div>
                 </div>
                 <div className="bg-red-50 rounded-xl p-3 text-center">
-                  <div className="text-base font-bold text-red-600">₹{(selectedInvoice.balance || 0).toLocaleString()}</div>
+                  <div className="text-base font-bold text-red-600">Rs. {(selectedInvoice.balance || 0).toLocaleString()}</div>
                   <div className="text-[10px] text-slate-400 font-bold uppercase">Balance</div>
                 </div>
               </div>
@@ -388,7 +388,7 @@ export default function FeeInvoices() {
                           <tr key={i} className="hover:bg-slate-50">
                             <td className="px-4 py-2.5 font-medium text-slate-700">{item.fee_head_name || '—'}</td>
                             <td className="px-4 py-2.5 text-right font-bold text-slate-800">
-                              ₹{(item.amount || 0).toLocaleString()}
+                              Rs. {(item.amount || 0).toLocaleString()}
                             </td>
                           </tr>
                         ))}
@@ -397,7 +397,7 @@ export default function FeeInvoices() {
                         <tr className="bg-slate-50 font-bold">
                           <td className="px-4 py-2.5 text-slate-700">Total</td>
                           <td className="px-4 py-2.5 text-right text-emerald-700">
-                            ₹{(selectedInvoice.total_amount || 0).toLocaleString()}
+                            Rs. {(selectedInvoice.total_amount || 0).toLocaleString()}
                           </td>
                         </tr>
                       </tfoot>
@@ -448,15 +448,15 @@ export default function FeeInvoices() {
                 <span>Month: {fmt(selectedInvoice.month)}</span>
               </div>
               <div className="flex items-center gap-4 mt-1.5">
-                <span className="text-xs text-slate-500">Total: <strong className="text-slate-700">₹{(selectedInvoice.total_amount || 0).toLocaleString()}</strong></span>
-                <span className="text-xs text-slate-500">Already paid: <strong className="text-emerald-600">₹{(selectedInvoice.paid_amount || 0).toLocaleString()}</strong></span>
-                <span className="text-xs text-slate-500">Balance: <strong className="text-red-600">₹{(selectedInvoice.balance || 0).toLocaleString()}</strong></span>
+                <span className="text-xs text-slate-500">Total: <strong className="text-slate-700">Rs. {(selectedInvoice.total_amount || 0).toLocaleString()}</strong></span>
+                <span className="text-xs text-slate-500">Already paid: <strong className="text-emerald-600">Rs. {(selectedInvoice.paid_amount || 0).toLocaleString()}</strong></span>
+                <span className="text-xs text-slate-500">Balance: <strong className="text-red-600">Rs. {(selectedInvoice.balance || 0).toLocaleString()}</strong></span>
               </div>
             </div>
 
             <form onSubmit={handleCollect} className="p-5 space-y-4">
               <div>
-                <label className={labelCls}>Amount (₹) *</label>
+                <label className={labelCls}>Amount (Rs.) *</label>
                 <input required type="number" min="1" max={selectedInvoice.balance} step="0.01"
                   value={collectForm.amount}
                   onChange={e => setCollectForm(p => ({ ...p, amount: e.target.value }))}
@@ -468,7 +468,7 @@ export default function FeeInvoices() {
                       <button key={pct} type="button"
                         onClick={() => setCollectForm(p => ({ ...p, amount: amt }))}
                         className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded-lg font-semibold transition-colors">
-                        {pct}% (₹{amt.toLocaleString()})
+                        {pct}% (Rs. {amt.toLocaleString()})
                       </button>
                     );
                   })}

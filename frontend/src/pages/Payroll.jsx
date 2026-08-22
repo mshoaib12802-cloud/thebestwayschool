@@ -104,9 +104,9 @@ export default function Payroll() {
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[
-          { label: 'Total Payroll', value: `₹${totalPayroll.toLocaleString()}`, icon: Users, color: 'slate' },
-          { label: 'Total Paid', value: `₹${totalPaid.toLocaleString()}`, icon: CheckCircle2, color: 'emerald' },
-          { label: 'Pending', value: `₹${totalPending.toLocaleString()}`, icon: Clock, color: 'amber' },
+          { label: 'Total Payroll', value: `Rs. ${totalPayroll.toLocaleString()}`, icon: Users, color: 'slate' },
+          { label: 'Total Paid', value: `Rs. ${totalPaid.toLocaleString()}`, icon: CheckCircle2, color: 'emerald' },
+          { label: 'Pending', value: `Rs. ${totalPending.toLocaleString()}`, icon: Clock, color: 'amber' },
         ].map(stat => (
           <div key={stat.label} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-4">
             <div className={`w-12 h-12 rounded-2xl bg-${stat.color}-100 flex items-center justify-center`}>
@@ -167,12 +167,12 @@ export default function Payroll() {
                     <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 font-semibold text-slate-800">{p.staff_name}</td>
                       <td className="px-4 py-3 text-slate-500 capitalize">{p.role}</td>
-                      <td className="px-4 py-3 text-right text-slate-700">₹{(p.basic_salary || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right text-emerald-600">+₹{(p.allowances || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-slate-700">Rs. {(p.basic_salary || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right text-emerald-600">+Rs. {(p.allowances || 0).toLocaleString()}</td>
                       <td className="px-4 py-3 text-right text-red-500">
-                        -₹{((p.absence_deduction || 0) + (p.advance_deduction || 0) + (p.deductions || 0)).toLocaleString()}
+                        -Rs. {((p.absence_deduction || 0) + (p.advance_deduction || 0) + (p.deductions || 0)).toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-slate-800">₹{(p.net_salary || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right font-bold text-slate-800">Rs. {(p.net_salary || 0).toLocaleString()}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${meta.cls}`}>{meta.label}</span>
                       </td>
@@ -197,7 +197,7 @@ export default function Payroll() {
               </tbody>
               <tfoot><tr className="bg-slate-50 font-bold">
                 <td colSpan={5} className="px-4 py-3 text-slate-600">Total</td>
-                <td className="px-4 py-3 text-right text-slate-800">₹{totalPayroll.toLocaleString()}</td>
+                <td className="px-4 py-3 text-right text-slate-800">Rs. {totalPayroll.toLocaleString()}</td>
                 <td colSpan={2}></td>
               </tr></tfoot>
             </table>
@@ -215,23 +215,23 @@ export default function Payroll() {
             </div>
             <form onSubmit={saveEdit} className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-4 bg-slate-50 rounded-xl p-3 text-xs text-slate-500">
-                <div>Basic Salary: <strong className="text-slate-700">₹{(editPayroll.basic_salary || 0).toLocaleString()}</strong></div>
-                <div>Absence Deduction: <strong className="text-red-500">₹{(editPayroll.absence_deduction || 0).toLocaleString()}</strong></div>
+                <div>Basic Salary: <strong className="text-slate-700">Rs. {(editPayroll.basic_salary || 0).toLocaleString()}</strong></div>
+                <div>Absence Deduction: <strong className="text-red-500">Rs. {(editPayroll.absence_deduction || 0).toLocaleString()}</strong></div>
               </div>
               <div>
-                <label className={labelCls}>Extra Allowances (₹)</label>
+                <label className={labelCls}>Extra Allowances (Rs.)</label>
                 <input type="number" min="0" step="0.01" value={editForm.allowances}
                   onChange={e => setEditForm(p => ({ ...p, allowances: e.target.value }))} className={inputCls} placeholder="0" />
               </div>
               <div>
-                <label className={labelCls}>Additional Deductions (₹)</label>
+                <label className={labelCls}>Additional Deductions (Rs.)</label>
                 <input type="number" min="0" step="0.01" value={editForm.deductions}
                   onChange={e => setEditForm(p => ({ ...p, deductions: e.target.value }))} className={inputCls} placeholder="0" />
               </div>
               <div className="bg-slate-50 rounded-xl p-3 text-sm">
                 <span className="text-slate-500">Net Salary: </span>
                 <span className="font-bold text-slate-800">
-                  ₹{Math.max(0, (editPayroll.basic_salary || 0) + (parseFloat(editForm.allowances) || 0) - (editPayroll.absence_deduction || 0) - (editPayroll.advance_deduction || 0) - (parseFloat(editForm.deductions) || 0)).toLocaleString()}
+                  Rs. {Math.max(0, (editPayroll.basic_salary || 0) + (parseFloat(editForm.allowances) || 0) - (editPayroll.absence_deduction || 0) - (editPayroll.advance_deduction || 0) - (parseFloat(editForm.deductions) || 0)).toLocaleString()}
                 </span>
               </div>
               <div className="flex gap-3 pt-2">

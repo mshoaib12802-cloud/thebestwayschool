@@ -138,7 +138,7 @@ const StudentProfile = () => {
             <div className="w-px bg-white/20" />
             <div>
               <p className={`text-3xl font-bold ${balanceDue > 0 ? 'text-rose-300' : 'text-emerald-300'}`}>
-                {balanceDue > 0 ? `Rs.${balanceDue.toLocaleString()}` : 'Clear'}
+                {balanceDue > 0 ? `Rs. ${balanceDue.toLocaleString()}` : 'Clear'}
               </p>
               <p className="text-indigo-300 text-xs mt-0.5">Fee Balance</p>
             </div>
@@ -150,8 +150,8 @@ const StudentProfile = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={<TrendingUp size={22} className="text-indigo-600"/>} label="Attendance" value={`${attendancePct}%`} color="bg-indigo-50"/>
         <StatCard icon={<Award size={22} className="text-amber-600"/>} label="Exams Passed" value={passedExams} color="bg-amber-50"/>
-        <StatCard icon={<CreditCard size={22} className="text-emerald-600"/>} label="Total Paid" value={fees ? `Rs.${fees.summary.paid.toLocaleString()}` : '—'} color="bg-emerald-50"/>
-        <StatCard icon={<AlertTriangle size={22} className="text-rose-500"/>} label="Balance Due" value={balanceDue > 0 ? `Rs.${balanceDue.toLocaleString()}` : 'Nil'} color="bg-rose-50"/>
+        <StatCard icon={<CreditCard size={22} className="text-emerald-600"/>} label="Total Paid" value={fees ? `Rs. ${fees.summary.paid.toLocaleString()}` : '—'} color="bg-emerald-50"/>
+        <StatCard icon={<AlertTriangle size={22} className="text-rose-500"/>} label="Balance Due" value={balanceDue > 0 ? `Rs. ${balanceDue.toLocaleString()}` : 'Nil'} color="bg-rose-50"/>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -193,9 +193,9 @@ const StudentProfile = () => {
               <div className="space-y-1">
                 {[
                   { label: 'Duration', value: c.duration || '—', icon: <Clock size={15}/> },
-                  { label: 'Total Fee', value: `Rs.${(c.total_fee || 0).toLocaleString()}`, icon: <CreditCard size={15}/> },
-                  { label: 'Discount', value: c.discount_amount ? `Rs.${c.discount_amount.toLocaleString()}` : 'None', icon: <Star size={15}/> },
-                  { label: 'Net Payable', value: `Rs.${((c.total_fee || 0) - (c.discount_amount || 0)).toLocaleString()}`, icon: <CreditCard size={15}/> },
+                  { label: 'Total Fee', value: `Rs. ${(c.total_fee || 0).toLocaleString()}`, icon: <CreditCard size={15}/> },
+                  { label: 'Discount', value: c.discount_amount ? `Rs. ${c.discount_amount.toLocaleString()}` : 'None', icon: <Star size={15}/> },
+                  { label: 'Net Payable', value: `Rs. ${((c.total_fee || 0) - (c.discount_amount || 0)).toLocaleString()}`, icon: <CreditCard size={15}/> },
                   { label: 'Trainer', value: c.trainer_id?.name || '—', icon: <User size={15}/> },
                 ].map(({ label, value, icon }) => (
                   <div key={label} className="flex items-start gap-3 py-2.5 border-b border-slate-50 last:border-0">

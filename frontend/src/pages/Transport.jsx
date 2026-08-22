@@ -279,7 +279,7 @@ export default function Transport() {
                         <td className="px-4 py-3 text-slate-500">{en.student_id?.roll_number || '—'}</td>
                         <td className="px-4 py-3 text-slate-600">{en.route_id?.name}</td>
                         <td className="px-4 py-3 text-slate-600">{en.stop_name}</td>
-                        <td className="px-4 py-3 text-right font-bold text-blue-700">₹{(en.monthly_fee || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right font-bold text-blue-700">Rs. {(en.monthly_fee || 0).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -352,7 +352,7 @@ export default function Transport() {
                         <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                         <span className="font-medium text-slate-700 flex-1">{stop.name}</span>
                         {stop.pickup_time && <span className="text-xs text-slate-400">{stop.pickup_time}</span>}
-                        {stop.monthly_fee ? <span className="text-xs font-semibold text-blue-600">₹{stop.monthly_fee}</span> : null}
+                        {stop.monthly_fee ? <span className="text-xs font-semibold text-blue-600">Rs. {stop.monthly_fee}</span> : null}
                         <button type="button" onClick={() => removeStop(idx)} className="text-red-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button>
                       </div>
                     ))}
@@ -363,7 +363,7 @@ export default function Transport() {
                     <div className="grid grid-cols-3 gap-2">
                       <input type="time" value={newStop.pickup_time} onChange={e => setNewStop(p => ({ ...p, pickup_time: e.target.value }))} className={inputCls} placeholder="Pickup" />
                       <input type="time" value={newStop.drop_time} onChange={e => setNewStop(p => ({ ...p, drop_time: e.target.value }))} className={inputCls} placeholder="Drop" />
-                      <input type="number" value={newStop.monthly_fee} onChange={e => setNewStop(p => ({ ...p, monthly_fee: e.target.value }))} className={inputCls} placeholder="₹ Fee" />
+                      <input type="number" value={newStop.monthly_fee} onChange={e => setNewStop(p => ({ ...p, monthly_fee: e.target.value }))} className={inputCls} placeholder="Rs. Fee" />
                     </div>
                     <button type="button" onClick={addStop} className="w-full bg-blue-600 text-white py-1.5 rounded-xl text-xs font-semibold hover:bg-blue-700">
                       <Plus className="w-3.5 h-3.5 inline mr-1" /> Add Stop
@@ -414,7 +414,7 @@ export default function Transport() {
                   <label className={labelCls}>Stop *</label>
                   <select required value={enrollForm.stop_name} onChange={e => setEnrollForm(p => ({ ...p, stop_name: e.target.value }))} className={inputCls}>
                     <option value="">Select Stop</option>
-                    {selectedRouteStops.map((s, i) => <option key={i} value={s.name}>{s.name}{s.monthly_fee ? ` — ₹${s.monthly_fee}` : ''}</option>)}
+                    {selectedRouteStops.map((s, i) => <option key={i} value={s.name}>{s.name}{s.monthly_fee ? ` — Rs. ${s.monthly_fee}` : ''}</option>)}
                   </select>
                 </div>
               )}

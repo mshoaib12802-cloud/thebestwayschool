@@ -30,7 +30,7 @@ function MonthCard({ charge }) {
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="font-extrabold text-indigo-700 text-lg">Rs {charge.amount?.toLocaleString()}</p>
+            <p className="font-extrabold text-indigo-700 text-lg">Rs. {charge.amount?.toLocaleString()}</p>
             <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${s.color}`}>
               {s.icon} {s.label}
             </span>
@@ -56,7 +56,7 @@ function MonthCard({ charge }) {
                     </p>
                   )}
                 </div>
-                <p className="text-sm font-bold text-slate-700">Rs {log.amount?.toLocaleString()}</p>
+                <p className="text-sm font-bold text-slate-700">Rs. {log.amount?.toLocaleString()}</p>
               </div>
             ))}
           </div>
@@ -113,9 +113,9 @@ export default function StudentCanteen() {
           {/* Summary */}
           <div className="grid grid-cols-3 gap-3 mb-6">
             {[
-              { label: 'Total Billed', value: `Rs ${total.toLocaleString()}`,   color: 'bg-indigo-50 text-indigo-700', icon: <TrendingUp size={18}/> },
-              { label: 'Paid',         value: `Rs ${paid.toLocaleString()}`,    color: 'bg-green-50 text-green-700',   icon: <CheckCircle2 size={18}/> },
-              { label: 'Pending',      value: `Rs ${pending.toLocaleString()}`, color: 'bg-amber-50 text-amber-700',   icon: <AlertCircle size={18}/> },
+              { label: 'Total Billed', value: `Rs. ${total.toLocaleString()}`,   color: 'bg-indigo-50 text-indigo-700', icon: <TrendingUp size={18}/> },
+              { label: 'Paid',         value: `Rs. ${paid.toLocaleString()}`,    color: 'bg-green-50 text-green-700',   icon: <CheckCircle2 size={18}/> },
+              { label: 'Pending',      value: `Rs. ${pending.toLocaleString()}`, color: 'bg-amber-50 text-amber-700',   icon: <AlertCircle size={18}/> },
             ].map(c => (
               <div key={c.label} className={`rounded-2xl p-4 flex flex-col gap-1 ${c.color}`}>
                 <div className="flex items-center gap-1.5">{c.icon}<p className="text-xs font-bold uppercase tracking-wide">{c.label}</p></div>

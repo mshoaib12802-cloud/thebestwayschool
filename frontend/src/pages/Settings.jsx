@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
-import { Save, Upload, Bell, MessageSquare, Building2, DollarSign, TestTube2, CheckCircle, Loader2 } from 'lucide-react';
+import { Save, Upload, Bell, MessageSquare, Building2, TestTube2, CheckCircle, Loader2 } from 'lucide-react';
 
 const TABS = ['Institute', 'Notifications', 'SMS / WhatsApp', 'Finance'];
 
@@ -229,7 +229,7 @@ export default function Settings() {
         {/* ── FINANCE ── */}
         {tab === 'Finance' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 18 }}>
-            <Field label="Currency" hint="3-letter code e.g. PKR, USD"><Input value={form.currency || ''} onChange={e => set('currency', e.target.value)} /></Field>
+            <Field label="Currency" hint="3-letter code — e.g. PKR"><Input value={form.currency || ''} onChange={e => set('currency', e.target.value)} /></Field>
             <Field label="Currency Symbol"><Input value={form.currency_symbol || ''} onChange={e => set('currency_symbol', e.target.value)} placeholder="Rs." /></Field>
             <Field label="Default Fee Due Day" hint="Day of month fees are due (1–28)"><Input type="number" min={1} max={28} value={form.fee_due_day || 10} onChange={e => set('fee_due_day', e.target.value)} /></Field>
             <Field label="Late Fine Per Day (Rs.)" hint="Charged per day after due date (0 = disabled)"><Input type="number" min={0} value={form.fine_per_day || 0} onChange={e => set('fine_per_day', e.target.value)} /></Field>

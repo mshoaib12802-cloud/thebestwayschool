@@ -6,11 +6,12 @@ import { QRCodeCanvas } from 'qrcode.react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
-  Users, UserPlus, Briefcase, DollarSign, Search,
+  Users, UserPlus, Briefcase, Search,
   Trash2, Phone, Mail, Calendar, X, ShieldCheck,
   Download, MapPin, Hash, User, FileText, KeyRound, Copy, CheckCheck,
   BookOpen, Plus, Tag
 } from 'lucide-react';
+import RupeeIcon from '../components/RupeeIcon';
 
 const Staff = () => {
   const [staff, setStaff] = useState([]);
@@ -247,7 +248,7 @@ const Staff = () => {
         
         <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 rounded-[2rem] text-white shadow-xl shadow-emerald-200">
            <div className="flex items-center gap-3 opacity-90 mb-2">
-             <DollarSign size={20}/> <span className="uppercase text-xs font-bold tracking-wider">Monthly Payroll</span>
+             <RupeeIcon size={20}/> <span className="uppercase text-xs font-bold tracking-wider">Monthly Payroll</span>
            </div>
            <p className="text-4xl font-extrabold">Rs. {totalPayroll.toLocaleString()}</p>
         </div>
@@ -479,7 +480,7 @@ const Staff = () => {
                     {/* Payroll Info */}
                     <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
                        <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2 text-sm uppercase">
-                          <DollarSign size={16} className="text-emerald-500"/> Payroll Information
+                          <RupeeIcon size={16} className="text-emerald-500"/> Payroll Information
                        </h4>
                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
@@ -559,7 +560,7 @@ const Staff = () => {
                     {selectedStaff.role === 'teacher' && (
                       <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100">
                         <h4 className="font-bold text-amber-800 mb-4 flex items-center gap-2 text-sm uppercase">
-                          <DollarSign size={16} className="text-amber-500"/> Commission Earnings
+                          <RupeeIcon size={16} className="text-amber-500"/> Commission Earnings
                         </h4>
                         {loadingEarnings ? (
                           <p className="text-slate-400 text-sm">Loading earnings...</p>

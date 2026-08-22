@@ -10,11 +10,12 @@ import {
   QrCode, LogOut, Briefcase, BookOpen,
   ClipboardList, CalendarDays, AlertTriangle, FileSpreadsheet, Zap, Inbox, Building2,
   School, BookMarked, CalendarRange, FileText, ArrowUpCircle, UserCheck, Clock, LayoutGrid,
-  Megaphone, CalendarOff, DollarSign, BookCopy, ShieldCheck, Truck, CreditCard,
+  Megaphone, CalendarOff, BookCopy, ShieldCheck, Truck, CreditCard,
   ScrollText, ClipboardCheck, CalendarClock, Receipt, PiggyBank, Grid3X3, GraduationCap, BarChart2,
   FolderOpen, Tag, BookOpenCheck, Shield, MessageCircle, Settings, Menu, X,
   UtensilsCrossed,
 } from 'lucide-react';
+import RupeeIcon from './RupeeIcon';
 
 const Layout = () => {
   const { user, logout } = useContext(AuthContext);
@@ -82,7 +83,7 @@ const Layout = () => {
     { path: '/fee-invoices',             name: 'Fee Invoices',     icon: <Banknote size={20} /> },
     { path: '/announcements',            name: 'Announcements',    icon: <Megaphone size={20} /> },
     { path: '/leave-management',         name: 'Leave',            icon: <CalendarOff size={20} /> },
-    { path: '/payroll',                  name: 'Payroll',          icon: <DollarSign size={20} /> },
+    { path: '/payroll',                  name: 'Payroll',          icon: <RupeeIcon size={20} /> },
     { path: '/staff-advances',           name: 'Staff Advances',   icon: <PiggyBank size={20} /> },
     { path: '/school-calendar',          name: 'School Calendar',  icon: <CalendarRange size={20} /> },
     { path: '/library',                  name: 'Library',          icon: <BookCopy size={20} /> },
@@ -99,7 +100,7 @@ const Layout = () => {
     { path: '/exam-papers',              name: 'Exam Papers',       icon: <GraduationCap size={20} /> },
     { isDivider: true, label: 'Analytics' },
     { path: '/analytics',                name: 'Analytics',         icon: <BarChart2 size={20} /> },
-    { path: '/financial-dashboard',      name: 'Financial Dashboard', icon: <DollarSign size={20} /> },
+    { path: '/financial-dashboard',      name: 'Financial Dashboard', icon: <RupeeIcon size={20} /> },
     { path: '/reports',                  name: 'Reports',           icon: <BarChart2 size={20} /> },
     { isDivider: true, label: 'Tools' },
     { path: '/documents',                name: 'Documents',         icon: <FolderOpen size={20} /> },

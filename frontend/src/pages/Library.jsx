@@ -263,7 +263,7 @@ export default function Library() {
                           <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${meta.cls}`}>{meta.label}</span>
                         </td>
                         <td className="px-4 py-3 text-right font-semibold text-red-500">
-                          {iss.fine_amount ? `₹${iss.fine_amount}` : '—'}
+                          {iss.fine_amount ? `Rs. ${iss.fine_amount}` : '—'}
                         </td>
                         <td className="px-4 py-3 text-right">
                           {!iss.return_date && (

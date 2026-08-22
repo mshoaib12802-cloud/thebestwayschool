@@ -5,8 +5,9 @@ import {
   CalendarCheck, Wallet, BookOpen, ShieldCheck, CalendarOff,
   AlertTriangle, TrendingUp, User, Phone, MapPin, Hash,
   GraduationCap, Clock, CheckCircle, XCircle, MinusCircle,
-  BarChart2, ArrowLeft, Printer, FileText, DollarSign,
+  BarChart2, ArrowLeft, Printer, FileText,
 } from 'lucide-react';
+import RupeeIcon from '../components/RupeeIcon';
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -129,7 +130,7 @@ function ReportDetail({ person, onClose }) {
                       <StatCard label="Fines Pending" value={`Rs. ${fmt(data.fines.summary.pending)}`} sub={`${data.fines.summary.count} issued`} color="#f59e0b" icon={AlertTriangle} />
                     </> : <>
                       <StatCard label="Attendance" value={`${data.attendance.summary.percentage}%`} sub={`${data.attendance.summary.present_effective}/${data.attendance.summary.total} days`} color={attColor(data.attendance.summary.percentage)} icon={CalendarCheck} />
-                      <StatCard label="Total Salary Paid" value={`Rs. ${fmt(data.payroll.summary.total_paid)}`} sub={`${data.payroll.summary.months_count} months`} color="#0891b2" icon={DollarSign} />
+                      <StatCard label="Total Salary Paid" value={`Rs. ${fmt(data.payroll.summary.total_paid)}`} sub={`${data.payroll.summary.months_count} months`} color="#0891b2" icon={RupeeIcon} />
                       <StatCard label="Leave Taken" value={`${data.leave.summary.total_days_taken} days`} sub={`${data.leave.summary.approved} approved`} color="#7c3aed" icon={CalendarOff} />
                       <StatCard label="Outstanding Advances" value={`Rs. ${fmt(data.advances.summary.outstanding)}`} sub={`${data.advances.summary.count} advances`} color="#f59e0b" icon={FileText} />
                     </>}
@@ -460,7 +461,7 @@ function ReportDetail({ person, onClose }) {
               {tab === 'Payroll' && !isStudent && (
                 <div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
-                    <StatCard label="Total Paid" value={`Rs. ${fmt(data.payroll.summary.total_paid)}`} sub={`${data.payroll.summary.months_count} months`} color="#10b981" icon={DollarSign} />
+                    <StatCard label="Total Paid" value={`Rs. ${fmt(data.payroll.summary.total_paid)}`} sub={`${data.payroll.summary.months_count} months`} color="#10b981" icon={RupeeIcon} />
                     <StatCard label="Deductions" value={`Rs. ${fmt(data.payroll.summary.total_deductions)}`} color="#ef4444" icon={MinusCircle} />
                   </div>
                   <div style={{ background: '#fff', borderRadius: 12, padding: 18, boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
