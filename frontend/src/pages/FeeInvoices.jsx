@@ -394,12 +394,43 @@ export default function FeeInvoices() {
                         ))}
                       </tbody>
                       <tfoot>
+                        {(selectedInvoice.discount_amount || 0) > 0 && (
+                          <tr className="bg-slate-50">
+                            <td className="px-4 py-2 text-slate-500 text-xs">
+                              Concession / discount
+                              {selectedInvoice.concessions?.length > 0 && (
+                                <span className="text-slate-400">
+                                  {' '}— {selectedInvoice.concessions.map(c => c.label).filter((v, i, a) => a.indexOf(v) === i).join(', ')}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2 text-right font-semibold text-emerald-600">
+                              − Rs. {(selectedInvoice.discount_amount || 0).toLocaleString()}
+                            </td>
+                          </tr>
+                        )}
                         <tr className="bg-slate-50 font-bold">
                           <td className="px-4 py-2.5 text-slate-700">Total</td>
                           <td className="px-4 py-2.5 text-right text-emerald-700">
                             Rs. {(selectedInvoice.total_amount || 0).toLocaleString()}
                           </td>
                         </tr>
+                        {(selectedInvoice.late_fine || 0) > 0 && (
+                          <>
+                            <tr className="bg-red-50">
+                              <td className="px-4 py-2 text-red-600 text-xs font-semibold">Late fine (overdue)</td>
+                              <td className="px-4 py-2 text-right font-bold text-red-600">
+                                + Rs. {(selectedInvoice.late_fine || 0).toLocaleString()}
+                              </td>
+                            </tr>
+                            <tr className="bg-slate-100 font-bold">
+                              <td className="px-4 py-2.5 text-slate-700">Payable</td>
+                              <td className="px-4 py-2.5 text-right text-slate-800">
+                                Rs. {((selectedInvoice.total_amount || 0) + (selectedInvoice.late_fine || 0)).toLocaleString()}
+                              </td>
+                            </tr>
+                          </>
+                        )}
                       </tfoot>
                     </table>
                   </div>
@@ -451,6 +482,9 @@ export default function FeeInvoices() {
                 <span className="text-xs text-slate-500">Total: <strong className="text-slate-700">Rs. {(selectedInvoice.total_amount || 0).toLocaleString()}</strong></span>
                 <span className="text-xs text-slate-500">Already paid: <strong className="text-emerald-600">Rs. {(selectedInvoice.paid_amount || 0).toLocaleString()}</strong></span>
                 <span className="text-xs text-slate-500">Balance: <strong className="text-red-600">Rs. {(selectedInvoice.balance || 0).toLocaleString()}</strong></span>
+                {(selectedInvoice.late_fine || 0) > 0 && (
+                  <span className="text-xs text-slate-500">Incl. late fine: <strong className="text-red-600">Rs. {(selectedInvoice.late_fine || 0).toLocaleString()}</strong></span>
+                )}
               </div>
             </div>
 

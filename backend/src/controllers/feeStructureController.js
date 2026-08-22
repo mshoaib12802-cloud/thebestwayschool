@@ -3,6 +3,10 @@ const FeeStructure = require('../models/FeeStructure');
 const FeeInvoice = require('../models/FeeInvoice');
 const Student = require('../models/Student');
 const Transaction = require('../models/Transaction');
+const {
+  splitRecurring, loadConcessions, applyConcessions,
+  finePerDay, refreshInvoice, sweepLateFines,
+} = require('../utils/feeAdjustments');
 
 // ─── FEE HEADS ───────────────────────────────────────────────────────────────
 const getFeeHeads = async (req, res) => {
@@ -87,24 +91,42 @@ const generateInvoices = async (req, res) => {
     if (!students.length)
       return res.status(404).json({ message: 'No active students in this class' });
 
+    // One-time heads (Admission Fee etc.) belong to enrolment, not to the
+    // monthly run — billing them here would charge them every month.
+    const { recurring } = await splitRecurring(structure.items);
+    if (!recurring.length)
+      return res.status(400).json({
+        message: 'This structure only has one-time fee heads. Those are charged at enrolment, not monthly.',
+      });
+
     const [year, mon] = month.split('-').map(Number);
     const dueDate = new Date(year, mon - 1, structure.due_day);
-    const totalAmount = structure.items.reduce((sum, i) => sum + i.amount, 0);
+    const baseItems = recurring.map(i => ({
+      fee_head_id: i.fee_head_id,
+      fee_head_name: i.fee_head_name || '',
+      amount: i.amount,
+    }));
 
-    let created = 0, skipped = 0;
+    const concessionsByStudent = await loadConcessions(students.map(s => s._id), academic_year_id);
+
+    let created = 0, skipped = 0, discounted = 0;
     for (const student of students) {
       try {
+        const { items, discount, applied } = applyConcessions(
+          baseItems, concessionsByStudent.get(String(student._id)) || []
+        );
+        const totalAmount = items.reduce((sum, i) => sum + i.amount, 0);
+        if (discount > 0) discounted++;
+
         await FeeInvoice.create({
           student_id: student._id,
           class_id,
           academic_year_id,
           month,
-          items: structure.items.map(i => ({
-            fee_head_id: i.fee_head_id,
-            fee_head_name: i.fee_head_name || '',
-            amount: i.amount,
-          })),
+          items,
           total_amount: totalAmount,
+          discount_amount: discount,
+          concessions: applied,
           paid_amount: 0,
           balance: totalAmount,
           due_date: dueDate,
@@ -116,7 +138,11 @@ const generateInvoices = async (req, res) => {
         else throw e;
       }
     }
-    res.json({ message: `Generated ${created} invoices. ${skipped} already existed.`, created, skipped });
+    const note = discounted ? ` ${discounted} had a concession applied.` : '';
+    res.json({
+      message: `Generated ${created} invoices. ${skipped} already existed.${note}`,
+      created, skipped, discounted,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message || 'Server error' });
   }
@@ -131,6 +157,7 @@ const getInvoices = async (req, res) => {
     if (month) filter.month = month;
     if (status) filter.status = status;
     if (student_id) filter.student_id = student_id;
+    await sweepLateFines();
     const invoices = await FeeInvoice.find(filter)
       .populate('student_id', 'full_name roll_number')
       .populate('class_id', 'name grade_level section')
@@ -144,11 +171,15 @@ const recordPayment = async (req, res) => {
     const { amount, payment_method, notes } = req.body;
     const invoice = await FeeInvoice.findById(req.params.id).populate('student_id', 'full_name');
     if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
+
+    // Settle any fine accrued since this invoice was last read before taking money.
+    refreshInvoice(invoice, await finePerDay());
     if (invoice.status === 'paid') return res.status(400).json({ message: 'Already fully paid' });
 
     const paying = Number(amount);
-    const newPaid = Math.min(invoice.paid_amount + paying, invoice.total_amount);
-    const newBalance = invoice.total_amount - newPaid;
+    const payable = invoice.total_amount + (invoice.late_fine || 0);
+    const newPaid = Math.min(invoice.paid_amount + paying, payable);
+    const newBalance = payable - newPaid;
     const newStatus = newBalance <= 0 ? 'paid' : 'partial';
 
     const tx = await Transaction.create({
@@ -176,6 +207,7 @@ const getStudentInvoices = async (req, res) => {
   try {
     const student = await Student.findOne({ user_id: req.user._id });
     if (!student) return res.status(404).json({ message: 'Student not found' });
+    await sweepLateFines();
     const invoices = await FeeInvoice.find({ student_id: student._id }).sort({ month: -1 });
     res.json(invoices);
   } catch { res.status(500).json({ message: 'Server error' }); }
@@ -187,6 +219,7 @@ const getChildInvoices = async (req, res) => {
     const student = await Student.findById(studentId);
     if (!student || String(student.parent_id) !== String(req.user._id))
       return res.status(403).json({ message: 'Access denied' });
+    await sweepLateFines();
     const invoices = await FeeInvoice.find({ student_id: studentId }).sort({ month: -1 });
     res.json(invoices);
   } catch { res.status(500).json({ message: 'Server error' }); }
@@ -197,8 +230,8 @@ const createSingleInvoice = async (req, res) => {
   try {
     const {
       student_id, class_id, academic_year_id, month,
-      items, discount_amount, total_amount, paid_amount,
-      balance, status, notes, payment_method,
+      items, discount_amount, paid_amount,
+      notes, payment_method,
     } = req.body;
 
     if (!student_id || !month || !items?.length)
@@ -208,33 +241,51 @@ const createSingleInvoice = async (req, res) => {
     const [yr, mo] = month.split('-').map(Number);
     const dueDate  = new Date(yr, mo - 1, 10);
 
+    // Totals are recomputed here rather than trusted from the client, so a
+    // concession the enrolling clerk could not see still gets applied.
+    const concessions = (await loadConcessions([student_id], academic_year_id)).get(String(student_id)) || [];
+    const { items: pricedItems, discount: concessionDiscount, applied } = applyConcessions(
+      items.map(it => ({
+        fee_head_id:   it.fee_head_id,
+        fee_head_name: it.fee_head_name,
+        amount:        Number(it.amount) || 0,
+      })),
+      concessions
+    );
+
+    const manualDiscount = Math.max(0, Number(discount_amount) || 0);
+    const gross    = pricedItems.reduce((sum, i) => sum + i.amount, 0);
+    const total    = Math.max(0, gross - manualDiscount);
+    const paid     = Math.min(Math.max(0, Number(paid_amount) || 0), total);
+    const settled  = paid >= total;
+
     const invoice = await FeeInvoice.create({
       student_id,
       class_id,
       academic_year_id,
       month,
-      items: items.map(it => ({
-        fee_head_id:   it.fee_head_id,
-        fee_head_name: it.fee_head_name,
-        amount:        it.amount,
-        is_paid:       paid_amount >= total_amount,
-        paid_amount:   paid_amount >= total_amount ? it.amount : 0,
+      items: pricedItems.map(it => ({
+        ...it,
+        is_paid:     settled,
+        paid_amount: settled ? it.amount : 0,
       })),
-      total_amount:    total_amount || 0,
-      paid_amount:     paid_amount  || 0,
-      balance:         balance      ?? (total_amount - (paid_amount || 0)),
-      status:          status       || 'unpaid',
+      total_amount:    total,
+      discount_amount: concessionDiscount + manualDiscount,
+      concessions:     applied,
+      paid_amount:     paid,
+      balance:         total - paid,
+      status:          settled ? 'paid' : paid > 0 ? 'partial' : 'unpaid',
       due_date:        dueDate,
       notes:           notes || '',
       generated_by:    req.user._id,
     });
 
     // If some amount paid at enrollment, record a Transaction too
-    if ((paid_amount || 0) > 0) {
+    if (paid > 0) {
       await Transaction.create({
         type:           'income',
         category:       'fee_collection',
-        amount:         paid_amount,
+        amount:         paid,
         description:    `Enrollment fee — ${month}`,
         payment_method: payment_method || 'cash',
         student_id,

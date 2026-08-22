@@ -184,9 +184,15 @@ export default function FeeStructure() {
 
   const recurringHeads = feeHeads.filter(h => h.is_recurring).length;
   const oneTimeHeads = feeHeads.filter(h => !h.is_recurring).length;
-  const totalMonthlyFee = structure
-    ? (structure.items || []).reduce((s, i) => s + (i.amount || 0), 0)
-    : 0;
+
+  // Only recurring heads are billed by the monthly run — one-time heads
+  // (Admission Fee etc.) are charged once, at enrolment.
+  const isMonthlyItem = item =>
+    feeHeads.find(h => h._id === String(item.fee_head_id?._id || item.fee_head_id))?.is_recurring !== false;
+  const sumMonthly = (items = []) =>
+    items.filter(isMonthlyItem).reduce((s, i) => s + (i.amount || 0), 0);
+  const sumOneTime = (items = []) =>
+    items.filter(i => !isMonthlyItem(i)).reduce((s, i) => s + (i.amount || 0), 0);
 
   const tabs = [
     { id: 'heads',      label: 'Fee Heads',    icon: Tag },
@@ -413,9 +419,19 @@ export default function FeeStructure() {
                       <tr className="bg-sky-50">
                         <td colSpan={2} className="px-5 py-3 font-bold text-slate-700">Total per Month</td>
                         <td className="px-5 py-3 text-right font-bold text-sky-700 text-base">
-                          Rs. {(structure.items || []).reduce((s, i) => s + (i.amount || 0), 0).toLocaleString()}
+                          Rs. {sumMonthly(structure.items).toLocaleString()}
                         </td>
                       </tr>
+                      {sumOneTime(structure.items) > 0 && (
+                        <tr className="bg-amber-50">
+                          <td colSpan={2} className="px-5 py-3 font-bold text-slate-700">
+                            One-time <span className="font-medium text-amber-700">— charged at enrolment only</span>
+                          </td>
+                          <td className="px-5 py-3 text-right font-bold text-amber-700 text-base">
+                            Rs. {sumOneTime(structure.items).toLocaleString()}
+                          </td>
+                        </tr>
+                      )}
                     </tfoot>
                   </table>
                 </div>
@@ -476,19 +492,19 @@ export default function FeeStructure() {
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
                   <div className="text-2xl font-bold text-emerald-600">
-                    Rs. {Math.max(...allStructures.map(s => s.items?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0)).toLocaleString()}
+                    Rs. {Math.max(...allStructures.map(s => sumMonthly(s.items))).toLocaleString()}
                   </div>
                   <div className="text-xs text-slate-500 font-semibold mt-0.5">Highest Monthly Fee</div>
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
                   <div className="text-2xl font-bold text-amber-600">
-                    Rs. {Math.min(...allStructures.map(s => s.items?.reduce((sum, i) => sum + (i.amount || 0), 0) || 0)).toLocaleString()}
+                    Rs. {Math.min(...allStructures.map(s => sumMonthly(s.items))).toLocaleString()}
                   </div>
                   <div className="text-xs text-slate-500 font-semibold mt-0.5">Lowest Monthly Fee</div>
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
                   <div className="text-2xl font-bold text-slate-700">
-                    Rs. {Math.round(allStructures.reduce((sum, s) => sum + (s.items?.reduce((si, i) => si + (i.amount || 0), 0) || 0), 0) / allStructures.length).toLocaleString()}
+                    Rs. {Math.round(allStructures.reduce((sum, s) => sum + sumMonthly(s.items), 0) / allStructures.length).toLocaleString()}
                   </div>
                   <div className="text-xs text-slate-500 font-semibold mt-0.5">Average Monthly Fee</div>
                 </div>
@@ -512,7 +528,7 @@ export default function FeeStructure() {
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                       {allStructures.map(s => {
-                        const total = (s.items || []).reduce((sum, i) => sum + (i.amount || 0), 0);
+                        const total = sumMonthly(s.items);
                         const className = s.class_id?.name || `${s.class_id?.grade || ''} ${s.class_id?.section || ''}`.trim() || '—';
                         const yearName = s.academic_year_id?.label || '—';
                         return (
@@ -680,17 +696,29 @@ export default function FeeStructure() {
                 </div>
 
                 {/* Total Preview */}
-                {structureItems.some(i => i.amount !== '') && (
-                  <div className="bg-sky-600 rounded-xl p-3 flex items-center justify-between text-white">
-                    <span className="font-semibold text-sm">Monthly Total</span>
-                    <span className="font-bold text-lg">
-                      Rs. {structureItems
-                        .filter(i => i.amount !== '')
-                        .reduce((s, i) => s + (parseFloat(i.amount) || 0), 0)
-                        .toLocaleString()}
-                    </span>
-                  </div>
-                )}
+                {structureItems.some(i => i.amount !== '') && (() => {
+                  const filled  = structureItems.filter(i => i.amount !== '');
+                  const monthly = filled.filter(i => i.is_recurring !== false)
+                    .reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+                  const oneTime = filled.filter(i => i.is_recurring === false)
+                    .reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
+                  return (
+                    <div className="space-y-2">
+                      <div className="bg-sky-600 rounded-xl p-3 flex items-center justify-between text-white">
+                        <span className="font-semibold text-sm">Monthly Total</span>
+                        <span className="font-bold text-lg">Rs. {monthly.toLocaleString()}</span>
+                      </div>
+                      {oneTime > 0 && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
+                          <span className="font-semibold text-sm text-amber-800">
+                            One-time <span className="font-medium">— billed at enrolment, not monthly</span>
+                          </span>
+                          <span className="font-bold text-lg text-amber-700">Rs. {oneTime.toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
               <div className="p-5 border-t border-slate-100 flex gap-3">
                 <button type="button" onClick={() => setShowStructureModal(false)}

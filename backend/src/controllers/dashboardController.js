@@ -8,6 +8,7 @@ const Course       = require('../models/Course');
 const CourseModule = require('../models/CourseModule');
 const Result       = require('../models/Result');
 const FeeInvoice   = require('../models/FeeInvoice');
+const { sweepLateFines } = require('../utils/feeAdjustments');
 const SchoolClass  = require('../models/SchoolClass');
 
 const getDashboardStats = async (req, res) => {
@@ -53,6 +54,7 @@ const getDashboardStats = async (req, res) => {
     });
 
     // ── 4. FEE STATS FROM FeeInvoice (current month) ───────────────
+    await sweepLateFines(); // balances below are summed from stored fields
     const feeAgg = await FeeInvoice.aggregate([
       { $match: { month: monthStr } },
       {
@@ -228,6 +230,7 @@ const getAtRiskStudents = async (req, res) => {
     attAgg.forEach(a => { attMap[a._id.toString()] = a; });
 
     // ── Unpaid fee balance from FeeInvoice ────────────────────────
+    await sweepLateFines();
     const feeAgg = await FeeInvoice.aggregate([
       { $match: { student_id: { $in: studentIds }, status: { $in: ['unpaid', 'partial'] } } },
       { $group: { _id: '$student_id', balance: { $sum: '$balance' }, count: { $sum: 1 } } }
