@@ -6,7 +6,7 @@ import {
   CheckCircle, Star, Award, Heart, Globe2,
   Phone, Mail, MapPin, Clock, UserCheck,
   BookMarked, FlaskConical, Music, Trophy,
-  Briefcase, Baby,
+  Briefcase, Baby, Menu, X,
 } from 'lucide-react';
 import axios from 'axios';
 import logo from '../assets/logo2.jpeg';
@@ -97,6 +97,7 @@ const LOGIN_ITEMS = [
 export default function HomePage() {
   const [courses, setCourses] = useState([]);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const loginRef = useRef(null);
 
@@ -116,31 +117,45 @@ export default function HomePage() {
     return () => document.removeEventListener('mousedown', h);
   }, []);
 
+  // Mobile drawer: lock page scroll while open, close when back on desktop
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    const onResize = () => { if (window.innerWidth > 900) setMenuOpen(false); };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const navSolid = scrolled || menuOpen;
+
   return (
     <div style={{ fontFamily: "'Inter', -apple-system, sans-serif", background: '#fff', overflowX: 'hidden' }}>
 
-      {/* ══ NAVBAR ══════════════════════════════════════════════ */}
-      <nav style={{
+      {/* ══ NAVBAR ══════════════════════════════════════ */}
+      <nav className="bws-nav" style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        transition: 'all 0.35s cubic-bezier(0.4,0,0.2,1)',
-        background: scrolled ? 'rgba(10,22,50,0.97)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(24px)' : 'none',
-        borderBottom: scrolled ? '1px solid rgba(255,255,255,0.07)' : 'none',
-        boxShadow: scrolled ? '0 4px 30px rgba(0,0,0,0.3)' : 'none',
+        transition: 'background 0.35s cubic-bezier(0.4,0,0.2,1), box-shadow 0.35s, border-color 0.35s',
+        background: navSolid ? 'rgba(10,22,50,0.97)' : 'transparent',
+        backdropFilter: navSolid ? 'blur(24px)' : 'none',
+        borderBottom: navSolid ? '1px solid rgba(255,255,255,0.07)' : '1px solid transparent',
+        boxShadow: navSolid ? '0 4px 30px rgba(0,0,0,0.3)' : 'none',
       }}>
-        <div style={{ maxWidth: 1260, margin: '0 auto', padding: '0 2rem', height: 72, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="bws-nav-inner" style={{ maxWidth: 1260, margin: '0 auto', padding: '0 2rem', height: 72, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
 
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none' }}>
-            <img src={logo} alt="The Best Way Public School"
+          <Link to="/" onClick={() => setMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none', minWidth: 0 }}>
+            <img className="bws-brand-logo" src={logo} alt="The Best Way Public School"
               style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0,
                 boxShadow: '0 0 0 2.5px rgba(245,158,11,0.5), 0 4px 16px rgba(0,0,0,0.4)' }} />
-            <div>
-              <div style={{ color: '#fff', fontWeight: 900, fontSize: '1rem', lineHeight: 1.1, letterSpacing: '-0.01em' }}>The Best Way</div>
-              <div style={{ color: '#fbbf24', fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em' }}>Public School</div>
+            <div style={{ minWidth: 0 }}>
+              <div className="bws-brand-title" style={{ color: '#fff', fontWeight: 900, fontSize: '1rem', lineHeight: 1.1, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>The Best Way</div>
+              <div className="bws-brand-sub" style={{ color: '#fbbf24', fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', whiteSpace: 'nowrap' }}>Public School</div>
             </div>
           </Link>
 
-          {/* Nav links — hidden on small screens but fine for desktop */}
+          {/* Desktop nav links */}
           <div className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
             {['Home', 'About', 'Academics', 'Admissions', 'Contact'].map(n => (
               <a key={n} href={`#${n.toLowerCase()}`} style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none', transition: 'color 0.2s' }}
@@ -150,7 +165,8 @@ export default function HomePage() {
             ))}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {/* Desktop actions */}
+          <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div ref={loginRef} style={{ position: 'relative' }}>
               <button onClick={() => setLoginOpen(v => !v)} style={{
                 display: 'flex', alignItems: 'center', gap: '0.45rem',
@@ -205,11 +221,63 @@ export default function HomePage() {
               Apply Now
             </Link>
           </div>
+
+          {/* Hamburger — mobile only */}
+          <button type="button" className="bws-burger" onClick={() => setMenuOpen(v => !v)}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen}>
+            {menuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
+
+        {/* Mobile drawer */}
+        <div className={menuOpen ? 'bws-drawer open' : 'bws-drawer'}>
+          <div style={{ padding: '0.35rem 1.1rem 1.5rem' }}>
+            {['Home', 'About', 'Academics', 'Admissions', 'Contact'].map(n => (
+              <a key={n} href={`#${n.toLowerCase()}`} onClick={() => setMenuOpen(false)} style={{
+                display: 'block', padding: '0.9rem 0.25rem',
+                color: 'rgba(255,255,255,0.85)', fontSize: '1rem', fontWeight: 700,
+                textDecoration: 'none', borderBottom: '1px solid rgba(255,255,255,0.06)',
+              }}>{n}</a>
+            ))}
+
+            <div style={{ color: 'rgba(255,255,255,0.32)', fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.14em', margin: '1.4rem 0 0.65rem 0.25rem' }}>
+              Sign In
+            </div>
+            <div style={{ display: 'grid', gap: '0.5rem' }}>
+              {LOGIN_ITEMS.map(item => (
+                <Link key={item.href} to={item.href} onClick={() => setMenuOpen(false)} style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
+                  padding: '0.8rem 0.9rem', borderRadius: '0.8rem',
+                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                  textDecoration: 'none',
+                }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: item.dot, flexShrink: 0 }} />
+                    <span>
+                      <span style={{ display: 'block', color: '#f1f5f9', fontSize: '0.9rem', fontWeight: 700 }}>{item.label}</span>
+                      <span style={{ display: 'block', color: 'rgba(255,255,255,0.35)', fontSize: '0.7rem', fontWeight: 500 }}>{item.sub}</span>
+                    </span>
+                  </span>
+                  <ChevronRight size={15} color="rgba(255,255,255,0.3)" />
+                </Link>
+              ))}
+            </div>
+
+            <Link to="/apply" onClick={() => setMenuOpen(false)} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+              marginTop: '1.15rem', padding: '0.95rem 1rem', borderRadius: '0.8rem',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#0a1628',
+              fontWeight: 800, fontSize: '0.95rem', textDecoration: 'none',
+              boxShadow: '0 8px 24px rgba(245,158,11,0.35)',
+            }}>
+              Apply Now <ArrowRight size={17} />
+            </Link>
+          </div>
         </div>
       </nav>
 
       {/* ══ HERO ═════════════════════════════════════════════════ */}
-      <section id="home" style={{
+      <section id="home" className="bws-hero" style={{
         minHeight: '100vh', paddingTop: 72, position: 'relative', overflow: 'hidden',
         background: 'linear-gradient(150deg, #020818 0%, #0a1628 30%, #0d1f4a 60%, #08122e 100%)',
         display: 'flex', alignItems: 'center',
@@ -225,13 +293,13 @@ export default function HomePage() {
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, transparent, #f59e0b, #d97706, transparent)' }} />
         </div>
 
-        <div style={{ maxWidth: 1260, margin: '0 auto', padding: '5rem 2rem 6rem', position: 'relative', zIndex: 1, width: '100%' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3rem', alignItems: 'center' }}>
+        <div className="bws-hero-inner" style={{ maxWidth: 1260, margin: '0 auto', padding: '5rem 2rem 6rem', position: 'relative', zIndex: 1, width: '100%' }}>
+          <div className="bws-hero-grid" style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '3rem', alignItems: 'center' }}>
 
             {/* Left — text */}
             <div>
               {/* Badge */}
-              <div style={{
+              <div className="bws-hero-badge" style={{
                 display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
                 padding: '0.45rem 1.1rem', borderRadius: 99,
                 background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)',
@@ -244,7 +312,7 @@ export default function HomePage() {
 
               <h1 style={{
                 margin: '0 0 0.6rem',
-                fontSize: 'clamp(2.8rem, 5.5vw, 4.8rem)',
+                fontSize: 'clamp(2rem, 7vw, 4.8rem)',
                 fontWeight: 900, color: '#fff', lineHeight: 1.08,
                 letterSpacing: '-0.035em',
               }}>
@@ -252,7 +320,7 @@ export default function HomePage() {
               </h1>
               <h1 style={{
                 margin: '0 0 1.5rem',
-                fontSize: 'clamp(2rem, 4vw, 3.4rem)',
+                fontSize: 'clamp(1.5rem, 5.2vw, 3.4rem)',
                 fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.03em',
                 background: 'linear-gradient(90deg, #fbbf24 0%, #f59e0b 40%, #fde68a 100%)',
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
@@ -260,20 +328,20 @@ export default function HomePage() {
                 Public School
               </h1>
 
-              <p style={{
+              <p className="bws-hero-p" style={{
                 margin: '0 0 0.9rem',
-                fontSize: 'clamp(1.1rem, 2vw, 1.35rem)',
+                fontSize: 'clamp(1rem, 3.4vw, 1.35rem)',
                 color: 'rgba(255,255,255,0.6)', lineHeight: 1.75, maxWidth: 540,
                 fontStyle: 'italic', fontWeight: 500,
               }}>
                 "Learn, Grow &amp; Succeed"
               </p>
-              <p style={{ margin: '0 0 2.75rem', fontSize: '1rem', color: 'rgba(255,255,255,0.42)', lineHeight: 1.8, maxWidth: 500 }}>
+              <p className="bws-hero-p" style={{ margin: '0 0 2.75rem', fontSize: '1rem', color: 'rgba(255,255,255,0.42)', lineHeight: 1.8, maxWidth: 500 }}>
                 Providing quality education from Nursery to Higher Secondary, nurturing young minds with modern teaching, dedicated faculty, and a safe learning environment.
               </p>
 
               {/* CTA */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '3.5rem' }}>
+              <div className="bws-hero-cta" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginBottom: '3.5rem' }}>
                 <Link to="/apply" style={{
                   display: 'inline-flex', alignItems: 'center', gap: '0.65rem',
                   padding: '0.95rem 2.1rem', borderRadius: '0.85rem',
@@ -300,7 +368,7 @@ export default function HomePage() {
               </div>
 
               {/* Stats row */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2.5rem' }}>
+              <div className="bws-hero-stats" style={{ display: 'flex', flexWrap: 'wrap', gap: '2.5rem' }}>
                 {STATS.map(s => (
                   <div key={s.label}>
                     <div style={{ color: '#fbbf24', fontWeight: 900, fontSize: '2rem', lineHeight: 1, letterSpacing: '-0.03em' }}>{s.value}</div>
@@ -314,7 +382,7 @@ export default function HomePage() {
 
             {/* Right — logo emblem */}
             <div className="hero-logo-wrap" style={{ flexShrink: 0 }}>
-              <div style={{
+              <div className="bws-hero-emblem" style={{
                 width: 280, height: 280,
                 borderRadius: '50%',
                 background: 'radial-gradient(circle at 40% 35%, rgba(30,64,175,0.35), rgba(8,18,46,0.8))',
@@ -323,7 +391,7 @@ export default function HomePage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 animation: 'floatLogo 4s ease-in-out infinite',
               }}>
-                <img src={logo} alt="School Logo"
+                <img className="bws-hero-emblem-img" src={logo} alt="School Logo"
                   style={{ width: 220, height: 220, borderRadius: '50%', objectFit: 'cover',
                     boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }} />
               </div>
@@ -332,14 +400,14 @@ export default function HomePage() {
         </div>
 
         {/* Scroll indicator */}
-        <div style={{ position: 'absolute', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', animation: 'bounce 2s infinite' }}>
+        <div className="bws-scroll-ind" style={{ position: 'absolute', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', animation: 'bounce 2s infinite' }}>
           <ChevronDown size={22} color="rgba(255,255,255,0.25)" />
         </div>
       </section>
 
       {/* ══ GOLD STATS BAND ═════════════════════════════════════ */}
-      <div style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%)', padding: '2.5rem 2rem' }}>
-        <div style={{ maxWidth: 1260, margin: '0 auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-around', gap: '2rem' }}>
+      <div className="bws-band" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%)', padding: '2.5rem 2rem' }}>
+        <div className="bws-band-inner" style={{ maxWidth: 1260, margin: '0 auto', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-around', gap: '2rem' }}>
           {[
             { icon: GraduationCap, label: 'Nursery to Class 12' },
             { icon: UserCheck,     label: 'Experienced Faculty' },
@@ -357,10 +425,10 @@ export default function HomePage() {
       </div>
 
       {/* ══ WHY CHOOSE US ════════════════════════════════════════ */}
-      <section id="about" style={{ padding: '6rem 2rem', background: '#f8fafc' }}>
+      <section id="about" className="bws-sec" style={{ padding: '6rem 2rem', background: '#f8fafc' }}>
         <div style={{ maxWidth: 1260, margin: '0 auto' }}>
 
-          <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
+          <div className="bws-sec-head" style={{ textAlign: 'center', marginBottom: '4rem' }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
               color: '#1d4ed8', fontSize: '0.7rem', fontWeight: 700,
@@ -378,7 +446,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
+          <div className="bws-grid-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))', gap: '1.5rem' }}>
             {WHY_US.map(({ icon: Icon, title, desc, color }) => (
               <div key={title} style={{
                 padding: '2rem', borderRadius: '1.25rem',
@@ -413,10 +481,10 @@ export default function HomePage() {
       </section>
 
       {/* ══ ACADEMIC CLASSES ════════════════════════════════════ */}
-      <section id="academics" style={{ padding: '6rem 2rem', background: '#fff' }}>
+      <section id="academics" className="bws-sec" style={{ padding: '6rem 2rem', background: '#fff' }}>
         <div style={{ maxWidth: 1260, margin: '0 auto' }}>
 
-          <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
+          <div className="bws-sec-head" style={{ textAlign: 'center', marginBottom: '4rem' }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
               color: '#d97706', fontSize: '0.7rem', fontWeight: 700,
@@ -434,7 +502,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '1.25rem' }}>
+          <div className="bws-grid-classes" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(190px, 100%), 1fr))', gap: '1.25rem' }}>
             {CLASSES.map(({ label, sub, icon: Icon, color, bg }) => (
               <div key={label} style={{
                 padding: '2rem 1.5rem', borderRadius: '1.25rem', textAlign: 'center',
@@ -461,7 +529,7 @@ export default function HomePage() {
       </section>
 
       {/* ══ PRINCIPAL / VISION BAND ══════════════════════════════ */}
-      <section style={{
+      <section className="bws-sec" style={{
         padding: '6rem 2rem', position: 'relative', overflow: 'hidden',
         background: 'linear-gradient(150deg, #0a1628 0%, #0d1f4a 50%, #08122e 100%)',
       }}>
@@ -491,7 +559,7 @@ export default function HomePage() {
           <p style={{ margin: '0 auto 2.5rem', color: 'rgba(255,255,255,0.5)', fontSize: '1.05rem', lineHeight: 1.8, maxWidth: 660 }}>
             At The Best Way Public School, we are committed to delivering high-quality education that combines strong academic foundations with moral values, creative thinking, and life skills — preparing every student to excel in all walks of life.
           </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '2.5rem' }}>
+          <div className="bws-vision-vals" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '2.5rem' }}>
             {[
               { val: 'Quality',  desc: 'Education' },
               { val: 'Moral',    desc: 'Values' },
@@ -508,10 +576,10 @@ export default function HomePage() {
       </section>
 
       {/* ══ PORTALS ══════════════════════════════════════════════ */}
-      <section style={{ padding: '6rem 2rem', background: '#f8fafc' }}>
+      <section className="bws-sec" style={{ padding: '6rem 2rem', background: '#f8fafc' }}>
         <div style={{ maxWidth: 1260, margin: '0 auto' }}>
 
-          <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
+          <div className="bws-sec-head" style={{ textAlign: 'center', marginBottom: '4rem' }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
               color: '#6d28d9', fontSize: '0.7rem', fontWeight: 700,
@@ -529,7 +597,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: '1.5rem' }}>
+          <div className="bws-grid-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(270px, 100%), 1fr))', gap: '1.5rem' }}>
             {PORTALS.map(({ title, desc, href, color, Icon }) => (
               <Link key={href} to={href} style={{
                 display: 'flex', flexDirection: 'column', textDecoration: 'none',
@@ -560,9 +628,9 @@ export default function HomePage() {
       </section>
 
       {/* ══ ADMISSIONS CTA ══════════════════════════════════════ */}
-      <section id="admissions" style={{ padding: '6rem 2rem', background: '#fff' }}>
+      <section id="admissions" className="bws-sec" style={{ padding: '6rem 2rem', background: '#fff' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <div style={{
+          <div className="bws-cta-card" style={{
             borderRadius: '2rem', overflow: 'hidden', position: 'relative',
             background: 'linear-gradient(135deg, #0a1628 0%, #1e3a8a 40%, #1d4ed8 100%)',
             padding: '5rem 3.5rem', textAlign: 'center',
@@ -589,7 +657,7 @@ export default function HomePage() {
               <p style={{ margin: '0 auto 2.5rem', color: 'rgba(255,255,255,0.6)', fontSize: '1.05rem', lineHeight: 1.75, maxWidth: 520 }}>
                 Give your child the gift of quality education at The Best Way Public School. Limited seats available for the upcoming academic session.
               </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
+              <div className="bws-cta-btns" style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center' }}>
                 <Link to="/apply" style={{
                   display: 'inline-flex', alignItems: 'center', gap: '0.65rem',
                   padding: '1rem 2.25rem', borderRadius: '0.85rem',
@@ -620,9 +688,9 @@ export default function HomePage() {
       </section>
 
       {/* ══ CONTACT INFO ════════════════════════════════════════ */}
-      <section id="contact" style={{ padding: '5rem 2rem', background: '#f8fafc' }}>
+      <section id="contact" className="bws-sec" style={{ padding: '5rem 2rem', background: '#f8fafc' }}>
         <div style={{ maxWidth: 1260, margin: '0 auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
+          <div className="bws-grid-contact" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(240px, 100%), 1fr))', gap: '1.5rem' }}>
             {[
               { icon: MapPin, title: 'Our Location',   val: 'Multan Ada Bili Wala, Punjab, Pakistan', color: '#dc2626' },
               { icon: Phone,  title: 'Phone Number',   val: '+92 — Call for details',                  color: '#16a34a' },
@@ -653,12 +721,12 @@ export default function HomePage() {
       </section>
 
       {/* ══ FOOTER ══════════════════════════════════════════════ */}
-      <footer style={{ background: 'linear-gradient(150deg, #020818 0%, #0a1628 50%, #08122e 100%)', padding: '4rem 2rem 2rem', position: 'relative', overflow: 'hidden' }}>
+      <footer className="bws-footer" style={{ background: 'linear-gradient(150deg, #020818 0%, #0a1628 50%, #08122e 100%)', padding: '4rem 2rem 2rem', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, opacity: 0.025, backgroundImage: 'radial-gradient(rgba(255,255,255,1) 1px, transparent 1px)', backgroundSize: '32px 32px', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, transparent, #f59e0b, #d97706, transparent)' }} />
 
         <div style={{ maxWidth: 1260, margin: '0 auto', position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '3rem', marginBottom: '3.5rem' }}>
+          <div className="bws-grid-footer" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: '3rem', marginBottom: '3.5rem' }}>
 
             {/* Brand */}
             <div>
@@ -753,7 +821,7 @@ export default function HomePage() {
           </div>
 
           {/* Bottom bar */}
-          <div style={{
+          <div className="bws-footer-bottom" style={{
             borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: '1.75rem',
             display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between',
             alignItems: 'center', gap: '0.75rem',
@@ -835,10 +903,156 @@ export default function HomePage() {
                      devGlow 1s ease-in-out infinite;
         }
 
-        /* Hero logo hide on small screens */
-        @media (max-width: 768px) {
-          .hero-logo-wrap { display: none !important; }
-          .nav-links { display: none !important; }
+        /* ══ Responsive / mobile ══════════════════════════════
+           The page is built with inline styles, so the mobile
+           overrides below need !important to win over them. */
+
+        html { scroll-behavior: smooth; }
+        section[id] { scroll-margin-top: 76px; }
+
+        /* Fixed navbar sits under the iOS status bar when installed
+           as a PWA (viewport-fit=cover) — pad it by the safe area. */
+        .bws-nav {
+          padding-top: env(safe-area-inset-top, 0px);
+          padding-left: env(safe-area-inset-left, 0px);
+          padding-right: env(safe-area-inset-right, 0px);
+        }
+
+        .bws-burger {
+          display: none;
+          align-items: center; justify-content: center;
+          width: 44px; height: 44px; flex-shrink: 0;
+          border-radius: 0.7rem;
+          background: rgba(255,255,255,0.08);
+          border: 1.5px solid rgba(255,255,255,0.18);
+          color: #fff; cursor: pointer;
+          transition: background 0.2s, border-color 0.2s;
+        }
+        .bws-burger:active { background: rgba(255,255,255,0.18); }
+
+        /* Slide-down mobile menu — hidden entirely on desktop */
+        .bws-drawer { display: none; }
+
+        @media (max-width: 900px) {
+          .nav-links,
+          .nav-actions       { display: none !important; }
+          .bws-burger        { display: inline-flex; }
+          .bws-nav-inner     { height: 62px !important; padding: 0 1rem !important; }
+          .bws-brand-logo    { width: 40px !important; height: 40px !important; }
+          .bws-brand-title   { font-size: 0.92rem !important; }
+          .bws-brand-sub     { font-size: 0.52rem !important; }
+
+          .bws-drawer {
+            display: block;
+            max-height: 0;
+            overflow: hidden;
+            background: rgba(8,18,42,0.99);
+            backdrop-filter: blur(20px);
+            transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
+          }
+          .bws-drawer.open {
+            max-height: calc(100vh - 62px - env(safe-area-inset-top, 0px));
+            max-height: calc(100dvh - 62px - env(safe-area-inset-top, 0px));
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            border-top: 1px solid rgba(255,255,255,0.07);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+          }
+
+          section[id] { scroll-margin-top: 66px; }
+
+          /* ── Hero ── */
+          .bws-hero {
+            min-height: 0 !important;
+            padding-top: 62px !important;
+          }
+          .bws-hero-inner  { padding: 2.5rem 1.1rem 3.25rem !important; }
+          .bws-hero-grid   {
+            grid-template-columns: 1fr !important;
+            gap: 1.75rem !important;
+            text-align: center;
+          }
+          .hero-logo-wrap  { order: -1; display: flex !important; justify-content: center; }
+          .bws-hero-emblem     { width: 180px !important; height: 180px !important; }
+          .bws-hero-emblem-img { width: 142px !important; height: 142px !important; }
+          .bws-hero-badge  { font-size: 0.62rem !important; padding: 0.4rem 0.85rem !important; margin-bottom: 1.25rem !important; }
+          .bws-hero-p      { margin-left: auto !important; margin-right: auto !important; }
+          .bws-hero-cta    { justify-content: center; margin-bottom: 2.5rem !important; gap: 0.75rem !important; }
+          .bws-hero-cta > a {
+            flex: 1 1 100%;
+            justify-content: center;
+            padding: 0.9rem 1.25rem !important;
+          }
+          .bws-hero-stats  {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 1.4rem 1rem !important;
+          }
+          .bws-hero-stats > div > div:first-child { font-size: 1.6rem !important; }
+          .bws-scroll-ind  { display: none !important; }
+
+          /* ── Gold band ── */
+          .bws-band        { padding: 1.75rem 1.1rem !important; }
+          .bws-band-inner  {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 1.1rem !important;
+          }
+          .bws-band-inner > div > div { width: 34px !important; height: 34px !important; }
+          .bws-band-inner span { font-size: 0.78rem !important; }
+
+          /* ── Sections ── */
+          .bws-sec         { padding: 3.25rem 1.1rem !important; }
+          .bws-sec-head    { margin-bottom: 2.25rem !important; }
+          .bws-sec-head p  { font-size: 0.9rem !important; }
+
+          .bws-grid-cards  { grid-template-columns: 1fr !important; gap: 1rem !important; }
+          .bws-grid-cards > * { padding: 1.5rem !important; }
+          .bws-grid-classes { grid-template-columns: repeat(2, 1fr) !important; gap: 0.85rem !important; }
+          .bws-grid-classes > * { padding: 1.4rem 0.75rem !important; }
+          .bws-grid-contact { grid-template-columns: 1fr !important; gap: 0.85rem !important; }
+          .bws-grid-contact > * { padding: 1.25rem !important; }
+
+          .bws-vision-vals {
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 1.35rem 1rem !important;
+          }
+
+          /* ── Admissions CTA ── */
+          .bws-cta-card    { padding: 2.75rem 1.25rem !important; border-radius: 1.35rem !important; }
+          .bws-cta-btns    { gap: 0.75rem !important; }
+          .bws-cta-btns > a {
+            flex: 1 1 100%;
+            justify-content: center;
+            padding: 0.9rem 1.25rem !important;
+          }
+
+          /* ── Footer ── */
+          .bws-footer {
+            padding: 3rem 1.1rem calc(1.5rem + env(safe-area-inset-bottom, 0px)) !important;
+          }
+          .bws-grid-footer { grid-template-columns: 1fr !important; gap: 2.25rem !important; margin-bottom: 2.25rem !important; }
+          .bws-footer-bottom {
+            flex-direction: column;
+            justify-content: center;
+            text-align: center;
+          }
+        }
+
+        /* Very small phones (<= 360px) */
+        @media (max-width: 380px) {
+          .bws-brand-sub    { display: none; }
+          .bws-grid-classes { grid-template-columns: 1fr !important; }
+          .bws-hero-stats   { gap: 1.1rem 0.75rem !important; }
+        }
+
+        /* Touch devices: the hover lifts above stick after a tap, so
+           only run them where a real pointer exists. */
+        @media (hover: none) {
+          .bws-grid-cards > *,
+          .bws-grid-classes > *,
+          .bws-grid-contact > * { transition: none !important; }
         }
       `}</style>
     </div>

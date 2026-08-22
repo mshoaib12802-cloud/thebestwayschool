@@ -12,6 +12,9 @@
 /* Prevent rubber-band scroll from triggering pull-to-refresh on Chrome Android */
 html, body {
   overscroll-behavior-y: contain;
+  /* Stop iOS from inflating text when a phone is rotated to landscape */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 /* Extend body under iPhone notch & home bar when installed as PWA */
