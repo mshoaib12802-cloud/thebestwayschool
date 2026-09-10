@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
-import { Receipt, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Receipt, CheckCircle, Clock, AlertCircle, ArrowRightCircle } from 'lucide-react';
 
 const STATUS = {
-  paid:    { label: 'Paid',    cls: 'bg-green-100 text-green-700',  icon: <CheckCircle size={13}/> },
-  partial: { label: 'Partial', cls: 'bg-amber-100 text-amber-700',  icon: <Clock size={13}/> },
-  unpaid:  { label: 'Unpaid',  cls: 'bg-red-100 text-red-700',      icon: <AlertCircle size={13}/> },
+  paid:           { label: 'Paid',            cls: 'bg-green-100 text-green-700',  icon: <CheckCircle size={13}/> },
+  partial:        { label: 'Partial',         cls: 'bg-amber-100 text-amber-700',  icon: <Clock size={13}/> },
+  unpaid:         { label: 'Unpaid',          cls: 'bg-red-100 text-red-700',      icon: <AlertCircle size={13}/> },
+  // Carried into a later month's invoice as "Previous Balance" — not an
+  // open amount on this one anymore, so it must read differently from unpaid.
+  rolled_forward: { label: 'Carried Forward', cls: 'bg-slate-100 text-slate-500',  icon: <ArrowRightCircle size={13}/> },
 };
 
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';

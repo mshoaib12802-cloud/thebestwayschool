@@ -112,7 +112,10 @@ const Layout = () => {
     { path: '/settings',                 name: 'Settings',          icon: <Settings size={20} /> },
   ];
 
-  const SidebarContent = () => (
+  // Plain JSX, not a nested component function — a fresh function reference on
+  // every Layout render would make React treat it as a new component type and
+  // remount the whole sidebar (losing nav's scrollTop) on every navigation.
+  const sidebarContent = (
     <>
       <div className="p-4 border-b border-slate-700 flex items-center gap-3 shrink-0">
         <img src={logo} alt="The Best Way"
@@ -163,7 +166,7 @@ const Layout = () => {
 
       {/* ── Desktop Sidebar ── */}
       <aside className="hidden md:flex w-64 bg-slate-900 text-white flex-col shadow-lg shrink-0">
-        <SidebarContent/>
+        {sidebarContent}
       </aside>
 
       {/* ── Mobile Drawer Overlay ── */}

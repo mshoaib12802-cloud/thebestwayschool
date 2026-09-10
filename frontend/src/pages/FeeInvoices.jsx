@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import {
   Receipt, Plus, Search, RefreshCw, X, CreditCard,
   Filter, TrendingUp, AlertTriangle, CheckCircle2, Clock,
-  ChevronDown, ChevronRight, Eye, Banknote,
+  ChevronDown, ChevronRight, Eye, Banknote, Printer,
 } from 'lucide-react';
 import RupeeIcon from '../components/RupeeIcon';
 
@@ -12,15 +12,163 @@ const inputCls = 'w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-
 const labelCls = 'block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1';
 
 const STATUS_META = {
-  unpaid:  { label: 'Unpaid',  cls: 'bg-red-100 text-red-700',     icon: AlertTriangle },
-  partial: { label: 'Partial', cls: 'bg-amber-100 text-amber-700', icon: Clock },
-  paid:    { label: 'Paid',    cls: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
+  unpaid:         { label: 'Unpaid',         cls: 'bg-red-100 text-red-700',     icon: AlertTriangle },
+  partial:        { label: 'Partial',        cls: 'bg-amber-100 text-amber-700', icon: Clock },
+  paid:           { label: 'Paid',           cls: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
+  rolled_forward: { label: 'Rolled Forward', cls: 'bg-slate-100 text-slate-500', icon: ChevronRight },
 };
 
 function fmt(m) {
   if (!m) return '—';
   const [y, mo] = m.split('-');
   return new Date(y, mo - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+}
+
+// ── Fee voucher print block (one per student) ───────────────────────────────
+function voucherBlock(inv, isLast) {
+  const items    = inv.items || [];
+  const discount = inv.discount_amount || 0;
+  const lateFine = inv.late_fine || 0;
+  const payable  = (inv.total_amount || 0) + lateFine;
+  const meta     = STATUS_META[inv.status] || STATUS_META.unpaid;
+
+  const rows = items.map((it, i) => `
+    <tr>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8ecf5;">${i + 1}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8ecf5;font-weight:600;">${it.fee_head_name || '—'}</td>
+      <td style="padding:6px 8px;border-bottom:1px solid #e8ecf5;text-align:right;font-weight:700;">Rs. ${(it.amount || 0).toLocaleString()}</td>
+    </tr>`).join('');
+
+  return `
+  <div class="voucher" style="${isLast ? '' : 'page-break-after:always;'}">
+    <div class="hdr">
+      <div class="hdr-inner">
+        <div class="logo-circle"><img src="/icons/icon-512.png" onerror="this.style.display='none'"/></div>
+        <div class="school-info">
+          <div class="school">The Best Way Public School</div>
+          <div class="tagline">Excellence in Education</div>
+        </div>
+        <div class="doc-badge"><span>Fee Voucher</span></div>
+      </div>
+    </div>
+    <div class="body">
+      <div class="info">
+        <div class="info-row"><span class="lbl">Student Name</span><span class="val">${inv.student_id?.full_name || '—'}</span></div>
+        <div class="info-row"><span class="lbl">Father Name</span><span class="val">${inv.student_id?.father_name || '—'}</span></div>
+        <div class="info-row"><span class="lbl">Roll Number</span><span class="val">${inv.student_id?.roll_number || '—'}</span></div>
+        <div class="info-row"><span class="lbl">Class</span><span class="val">${inv.class_id?.name || '—'} ${inv.class_id?.section ? '— ' + inv.class_id.section : ''}</span></div>
+        <div class="info-row"><span class="lbl">Fee Month</span><span class="val">${fmt(inv.month)}</span></div>
+        <div class="info-row"><span class="lbl">Due Date</span><span class="val">${inv.due_date ? new Date(inv.due_date).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span></div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:9.5pt;margin-top:10px;">
+        <thead>
+          <tr style="background:#0b1528;">
+            <th style="padding:6px 8px;text-align:left;color:#fff;font-size:8pt;text-transform:uppercase;width:28px;">#</th>
+            <th style="padding:6px 8px;text-align:left;color:#fff;font-size:8pt;text-transform:uppercase;">Fee Head</th>
+            <th style="padding:6px 8px;text-align:right;color:#fff;font-size:8pt;text-transform:uppercase;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${rows || '<tr><td colspan="3" style="padding:10px;text-align:center;color:#94a3b8;">No items</td></tr>'}</tbody>
+        <tfoot>
+          ${discount > 0 ? `
+          <tr style="background:#f8fafc;">
+            <td colspan="2" style="padding:6px 8px;font-size:9pt;color:#475569;">Concession / discount</td>
+            <td style="padding:6px 8px;text-align:right;font-weight:700;color:#059669;">− Rs. ${discount.toLocaleString()}</td>
+          </tr>` : ''}
+          <tr style="background:#f1f5f9;font-weight:800;">
+            <td colspan="2" style="padding:7px 8px;">Total</td>
+            <td style="padding:7px 8px;text-align:right;">Rs. ${(inv.total_amount || 0).toLocaleString()}</td>
+          </tr>
+          ${lateFine > 0 ? `
+          <tr style="background:#fef2f2;">
+            <td colspan="2" style="padding:6px 8px;font-size:9pt;color:#b91c1c;font-weight:600;">Late fine (overdue)</td>
+            <td style="padding:6px 8px;text-align:right;font-weight:700;color:#b91c1c;">+ Rs. ${lateFine.toLocaleString()}</td>
+          </tr>` : ''}
+          <tr style="background:#0b1528;">
+            <td colspan="2" style="padding:8px;color:#fff;font-weight:800;">Payable</td>
+            <td style="padding:8px;text-align:right;color:#c9a84c;font-weight:900;font-size:11pt;">Rs. ${payable.toLocaleString()}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="summ">
+        <div class="s"><div class="slbl">Paid</div><div class="sval" style="color:#4ade80;">Rs. ${(inv.paid_amount || 0).toLocaleString()}</div></div>
+        <div class="s"><div class="slbl">Balance</div><div class="sval" style="color:#f87171;">Rs. ${(inv.balance || 0).toLocaleString()}</div></div>
+        <div class="s"><div class="slbl">Status</div><div class="sval" style="font-size:12pt;">${meta.label.toUpperCase()}</div></div>
+      </div>
+
+      <div class="sigs">
+        <div class="sig"><div class="sig-line">Parent / Guardian Signature</div></div>
+        <div class="sig"><div class="sig-line">Cashier / Authorized Signature</div></div>
+      </div>
+    </div>
+    <div class="foot">
+      <strong>The Best Way Public School</strong> &nbsp;·&nbsp;
+      Computer-generated voucher &nbsp;·&nbsp; Please pay before the due date to avoid late fine.
+    </div>
+  </div>`;
+}
+
+function openVoucherPrint(invoicesToPrint) {
+  const win = window.open('', '_blank', 'width=850,height=1100');
+  const blocks = invoicesToPrint.map((inv, i) => voucherBlock(inv, i === invoicesToPrint.length - 1)).join('');
+  const names = invoicesToPrint.map(i => i.student_id?.full_name || 'Student').join(', ');
+
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>Fee Voucher — ${names}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Inter',sans-serif;background:#e8ecf2;display:flex;flex-direction:column;align-items:center;padding:24px;gap:24px;}
+  .voucher{width:210mm;background:white;box-shadow:0 8px 40px rgba(0,0,0,.18);position:relative;overflow:hidden;}
+
+  .hdr{background:linear-gradient(135deg,#0b1528 0%,#162444 55%,#0b1528 100%);padding:20px 22px 16px;position:relative;}
+  .hdr::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,#c9a84c,#c9a84c,transparent);}
+  .hdr-inner{display:flex;align-items:center;gap:18px;}
+  .logo-circle{width:56px;height:56px;border-radius:50%;border:2.5px solid #c9a84c;overflow:hidden;background:#fff;flex-shrink:0;}
+  .logo-circle img{width:100%;height:100%;object-fit:cover;}
+  .school-info{flex:1;}
+  .school{font-size:17pt;font-weight:900;color:#fff;letter-spacing:-0.01em;line-height:1.1;}
+  .tagline{font-size:8pt;color:#c9a84c;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;margin-top:3px;}
+  .doc-badge{background:linear-gradient(135deg,#c9a84c,#e8cc7a);border-radius:6px;padding:5px 16px;}
+  .doc-badge span{font-size:8pt;font-weight:900;color:#0b1528;letter-spacing:0.12em;text-transform:uppercase;}
+
+  .body{padding:16px 20px;}
+  .info{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:6px 0 4px;padding:12px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;border-left:3px solid #c9a84c;}
+  .info-row{display:flex;align-items:baseline;gap:8px;}
+  .lbl{font-size:8pt;color:#94a3b8;font-weight:700;min-width:90px;text-transform:uppercase;letter-spacing:0.05em;}
+  .val{font-size:10pt;font-weight:700;color:#0b1528;flex:1;padding-left:4px;border-bottom:1px dotted #cbd5e1;}
+
+  .summ{display:flex;border:1.5px solid #0b1528;border-radius:8px;overflow:hidden;margin:14px 0;background:#0b1528;}
+  .s{flex:1;text-align:center;padding:10px 6px;border-right:1px solid rgba(255,255,255,0.1);}
+  .s:last-child{border-right:none;}
+  .slbl{font-size:7pt;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;}
+  .sval{font-size:15pt;font-weight:900;color:#fff;margin-top:4px;line-height:1;}
+
+  .sigs{display:flex;gap:20px;margin-top:28px;}
+  .sig{flex:1;text-align:center;}
+  .sig-line{border-top:1.5px solid #0b1528;padding-top:5px;margin-top:36px;font-size:8.5pt;color:#64748b;font-weight:600;}
+
+  .foot{margin-top:14px;text-align:center;font-size:7.5pt;color:#94a3b8;padding:8px;background:#f8fafc;border-top:1px solid #e2e8f0;}
+  .foot strong{color:#c9a84c;}
+
+  @media print{
+    body{background:white;padding:0;gap:0;}
+    .voucher{box-shadow:none;}
+    @page{size:A4;margin:6mm;}
+  }
+</style>
+</head>
+<body>
+${blocks}
+<script>window.onload=function(){window.print();}</script>
+</body>
+</html>`);
+  win.document.close();
 }
 
 export default function FeeInvoices() {
@@ -41,6 +189,7 @@ export default function FeeInvoices() {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [collectForm, setCollectForm] = useState({ amount: '', payment_method: 'cash', notes: '' });
   const [collecting, setCollecting] = useState(false);
+  const [printingId, setPrintingId] = useState(null);
 
   useEffect(() => { fetchClasses(); fetchAcademicYears(); }, []);
 
@@ -48,6 +197,8 @@ export default function FeeInvoices() {
     document.body.style.overflow = (showCollectModal || showDetailModal) ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [showCollectModal, showDetailModal]);
+
+  useEffect(() => { fetchInvoices(); }, [filterClass, filterYear, filterMonth, filterStatus]);
 
   const fetchClasses = async () => {
     try { const { data } = await api.get('/school-classes'); setClasses(data); } catch { /* */ }
@@ -82,7 +233,9 @@ export default function FeeInvoices() {
         academic_year_id: filterYear,
         month: filterMonth,
       });
-      toast.success(`Generated: ${data.created || 0} new, ${data.skipped || 0} already existed`);
+      const sibNote = data.siblingsCreated ? `, ${data.siblingsCreated} sibling voucher(s) linked` : '';
+      const arrNote = data.arrearsRolled ? `, ${data.arrearsRolled} prior unpaid invoice(s) carried forward` : '';
+      toast.success(`Generated: ${data.created || 0} new, ${data.skipped || 0} already existed${sibNote}${arrNote}`);
       fetchInvoices();
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to generate invoices'); }
     finally { setGenerating(false); }
@@ -97,6 +250,22 @@ export default function FeeInvoices() {
   const openDetail = (inv) => {
     setSelectedInvoice(inv);
     setShowDetailModal(true);
+  };
+
+  // Prints this student's voucher, and — if a sibling (same parent, same
+  // month) also has an invoice — includes their voucher in the same print job.
+  const printVoucher = async (inv) => {
+    setPrintingId(inv._id);
+    try {
+      let siblings = [];
+      try {
+        const { data } = await api.get(`/fee-structure/invoices/${inv._id}/siblings`);
+        siblings = data || [];
+      } catch { /* siblings are a bonus — still print this voucher if the lookup fails */ }
+      openVoucherPrint([inv, ...siblings]);
+    } finally {
+      setPrintingId(null);
+    }
   };
 
   const handleCollect = async (e) => {
@@ -191,6 +360,7 @@ export default function FeeInvoices() {
               <option value="unpaid">Unpaid</option>
               <option value="partial">Partial</option>
               <option value="paid">Paid</option>
+              <option value="rolled_forward">Rolled Forward</option>
             </select>
           </div>
           <div className="flex gap-2 shrink-0">
@@ -277,7 +447,7 @@ export default function FeeInvoices() {
               <tbody className="divide-y divide-slate-50">
                 {filtered.map(inv => {
                   const meta = STATUS_META[inv.status] || STATUS_META.unpaid;
-                  const isOverdue = inv.due_date && new Date(inv.due_date) < new Date() && inv.status !== 'paid';
+                  const isOverdue = inv.due_date && new Date(inv.due_date) < new Date() && inv.status !== 'paid' && inv.status !== 'rolled_forward';
                   return (
                     <tr key={inv._id} className={`hover:bg-slate-50 transition-colors ${isOverdue ? 'bg-red-50/40' : ''}`}>
                       <td className="px-4 py-3 font-semibold text-slate-800">{studentName(inv)}</td>
@@ -307,7 +477,11 @@ export default function FeeInvoices() {
                             className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors" title="View Details">
                             <Eye className="w-4 h-4" />
                           </button>
-                          {inv.status !== 'paid' && (
+                          <button onClick={() => printVoucher(inv)} disabled={printingId === inv._id}
+                            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors disabled:opacity-50" title="Print Voucher">
+                            {printingId === inv._id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+                          </button>
+                          {inv.status !== 'paid' && inv.status !== 'rolled_forward' && (
                             <button onClick={() => openCollect(inv)}
                               className="flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-emerald-700 transition-colors">
                               <CreditCard className="w-3 h-3" /> Collect
@@ -448,7 +622,11 @@ export default function FeeInvoices() {
                 className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 text-sm transition-colors">
                 Close
               </button>
-              {selectedInvoice.status !== 'paid' && (
+              <button onClick={() => printVoucher(selectedInvoice)} disabled={printingId === selectedInvoice._id}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                {printingId === selectedInvoice._id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />} Print Voucher
+              </button>
+              {selectedInvoice.status !== 'paid' && selectedInvoice.status !== 'rolled_forward' && (
                 <button
                   onClick={() => { setShowDetailModal(false); openCollect(selectedInvoice); }}
                   className="flex-1 bg-emerald-600 text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-emerald-700 text-sm transition-colors flex items-center justify-center gap-2">

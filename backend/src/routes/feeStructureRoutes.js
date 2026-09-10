@@ -4,7 +4,7 @@ const { protect, adminOnly, staffOnly } = require('../middlewares/authMiddleware
 const {
   getFeeHeads, addFeeHead, updateFeeHead, deleteFeeHead,
   getFeeStructures, upsertFeeStructure, deleteFeeStructure,
-  generateInvoices, getInvoices, recordPayment,
+  generateInvoices, getInvoices, getInvoiceSiblings, recordPayment,
   getStudentInvoices, getChildInvoices, createSingleInvoice,
 } = require('../controllers/feeStructureController');
 
@@ -19,6 +19,7 @@ router.delete('/structures/:id',   protect, adminOnly, deleteFeeStructure);
 
 router.post('/generate',                  protect, staffOnly, generateInvoices);
 router.get('/invoices',                   protect, staffOnly, getInvoices);
+router.get('/invoices/:id/siblings',      protect, staffOnly, getInvoiceSiblings);
 router.post('/invoices/create-single',    protect, staffOnly, createSingleInvoice);
 router.post('/invoices/:id/pay',          protect, staffOnly, recordPayment);
 

@@ -108,6 +108,10 @@ function lateFineFor(invoice, perDay, now = new Date()) {
 // Recompute fine, balance and status on a single invoice document.
 // Returns true when something changed and the doc needs saving.
 function refreshInvoice(invoice, perDay, now = new Date()) {
+  // Its debt has already moved to the invoice that rolled it forward —
+  // never let a fine sweep reopen it or resurrect a nonzero balance.
+  if (invoice.status === 'rolled_forward') return false;
+
   const fine    = lateFineFor(invoice, perDay, now);
   const payable = (Number(invoice.total_amount) || 0) + fine;
   const paid    = Number(invoice.paid_amount) || 0;
@@ -134,8 +138,8 @@ async function sweepLateFines() {
   const today = new Date(now); today.setHours(0, 0, 0, 0);
 
   const overdue = perDay > 0
-    ? { status: { $ne: 'paid' }, due_date: { $lt: today } }
-    : { late_fine: { $gt: 0 }, status: { $ne: 'paid' } }; // setting switched off — refund it
+    ? { status: { $nin: ['paid', 'rolled_forward'] }, due_date: { $lt: today } }
+    : { late_fine: { $gt: 0 }, status: { $nin: ['paid', 'rolled_forward'] } }; // setting switched off — refund it
 
   const invoices = await FeeInvoice.find(overdue);
   const ops = [];
@@ -150,6 +154,34 @@ async function sweepLateFines() {
   return ops.length;
 }
 
+// ─── Arrears (previous unpaid balance carried into the next invoice) ─────────
+
+// Any earlier invoice for this student still unpaid/partial gets folded into
+// the next one generated as a single "Previous Balance" line, so a missed
+// April + May don't just vanish once June's bill is raised. Call after
+// sweepLateFines() so the balances being summed are current.
+async function collectArrears(studentId) {
+  const prior = await FeeInvoice.find({
+    student_id: studentId,
+    status: { $in: ['unpaid', 'partial'] },
+  }).select('balance').lean();
+
+  const sources = prior.filter(inv => (Number(inv.balance) || 0) > 0);
+  const amount = money(sources.reduce((sum, inv) => sum + (Number(inv.balance) || 0), 0));
+  return { amount, sourceIds: sources.map(inv => inv._id) };
+}
+
+// Old invoices absorbed into a new one are closed out so they stop accruing
+// late fines and drop out of "unpaid" aggregations — the debt now lives
+// entirely on the invoice that replaced them.
+async function closeRolledForward(sourceIds, newInvoiceId) {
+  if (!sourceIds?.length) return;
+  await FeeInvoice.updateMany(
+    { _id: { $in: sourceIds } },
+    { $set: { status: 'rolled_forward', balance: 0, rolled_into: newInvoiceId } }
+  );
+}
+
 module.exports = {
   splitRecurring,
   loadConcessions,
@@ -158,4 +190,6 @@ module.exports = {
   lateFineFor,
   refreshInvoice,
   sweepLateFines,
+  collectArrears,
+  closeRolledForward,
 };

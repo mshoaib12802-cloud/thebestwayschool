@@ -32,7 +32,12 @@ const FeeInvoiceSchema = new mongoose.Schema({
   late_fine: { type: Number, default: 0 },
   paid_amount: { type: Number, default: 0 },
   balance: { type: Number, default: 0 },
-  status: { type: String, enum: ['unpaid', 'partial', 'paid'], default: 'unpaid' },
+  // 'rolled_forward' = this invoice's balance was folded into a later invoice
+  // as a "Previous Balance" line (see rolled_into) instead of being paid here.
+  status: { type: String, enum: ['unpaid', 'partial', 'paid', 'rolled_forward'], default: 'unpaid' },
+  rolled_into: { type: mongoose.Schema.Types.ObjectId, ref: 'FeeInvoice', default: null },
+  // Older invoices this one absorbed as arrears, for the voucher/detail view.
+  arrears_from: [{ type: mongoose.Schema.Types.ObjectId, ref: 'FeeInvoice' }],
   due_date: { type: Date },
   notes: { type: String, default: '' },
   generated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

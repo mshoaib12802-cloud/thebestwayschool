@@ -111,6 +111,7 @@ export default function Admissions() {
   const [feeStructure,    setFeeStructure]    = useState(undefined);
   const [feeLoading,      setFeeLoading]      = useState(false);
   const [selectedFees,    setSelectedFees]    = useState({});
+  const [feeAmounts,      setFeeAmounts]      = useState({}); // per fee-head manual overrides, keyed by item._id
   const [feeDiscount,     setFeeDiscount]     = useState('');
   const [feePaid,         setFeePaid]         = useState('');
   const [feePayMethod,    setFeePayMethod]    = useState('cash');
@@ -217,8 +218,10 @@ export default function Admissions() {
       setFeeStructure(structure); // null = none found, object = found
       if (structure?.items?.length) {
         const pre = {};
-        structure.items.forEach(item => { pre[item._id] = true; });
+        const amt = {};
+        structure.items.forEach(item => { pre[item._id] = true; amt[item._id] = item.amount; });
         setSelectedFees(pre);
+        setFeeAmounts(amt);
       }
     } catch {
       setFeeStructure(null);
@@ -226,6 +229,9 @@ export default function Admissions() {
       setFeeLoading(false);
     }
   };
+
+  // Fee-head amount, with any manual override applied (increase/decrease at enrollment)
+  const amtOf = (it) => Number(feeAmounts[it?._id] ?? it?.amount) || 0;
 
   const handlePhoto = (e) => {
     const file = e.target.files[0];
@@ -238,6 +244,7 @@ export default function Admissions() {
   const resetFeeState = () => {
     setFeeStructure(undefined);
     setSelectedFees({});
+    setFeeAmounts({});
     setFeeDiscount('');
     setFeePaid('');
     setFeePayMethod('cash');
@@ -323,7 +330,9 @@ export default function Admissions() {
         setStudents(prev => [data.student, ...prev]);
 
         // ── Generate first-month fee invoice if fee items selected ──────────
-        const selItems = feeStructure?.items?.filter(it => selectedFees[it._id]) || [];
+        // amtOf() applies any manual per-head amount override made on the Fees tab.
+        const selItems = (feeStructure?.items?.filter(it => selectedFees[it._id]) || [])
+          .map(it => ({ ...it, amount: amtOf(it) }));
         let invoiceData = null;
         if (selItems.length && form.academic_year_id) {
           try {
@@ -971,12 +980,12 @@ export default function Admissions() {
 
                   {/* Fee items */}
                   {feeStructure?.items?.length > 0 && (() => {
-                    const rawTotal  = feeStructure.items.reduce((s, it) => s + it.amount, 0);
+                    const rawTotal  = feeStructure.items.reduce((s, it) => s + amtOf(it), 0);
                     const discount  = Number(feeDiscount) || 0;
                     const netTotal  = Math.max(0, rawTotal - discount);
                     const selTotal  = feeStructure.items
                       .filter(it => selectedFees[it._id])
-                      .reduce((s, it) => s + it.amount, 0);
+                      .reduce((s, it) => s + amtOf(it), 0);
                     const selNet    = Math.max(0, selTotal - discount);
                     const paidNow   = Math.min(Number(feePaid) || 0, selNet);
                     const balance   = selNet - paidNow;
@@ -996,23 +1005,42 @@ export default function Admissions() {
                               {feeStructure.items.every(it => selectedFees[it._id]) ? 'Deselect All' : 'Select All'}
                             </button>
                           </div>
-                          {feeStructure.items.map((item, i) => (
-                            <label key={item._id}
-                              className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${i < feeStructure.items.length - 1 ? 'border-b border-slate-100' : ''} ${selectedFees[item._id] ? 'bg-sky-50' : 'hover:bg-slate-50'}`}>
-                              <div onClick={() => setSelectedFees(p => ({ ...p, [item._id]: !p[item._id] }))}
-                                className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${selectedFees[item._id] ? 'bg-sky-600 border-sky-600' : 'border-slate-300'}`}>
-                                {selectedFees[item._id] && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5 3.5-4" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                          {feeStructure.items.map((item, i) => {
+                            const amt = amtOf(item);
+                            const isAdjusted = selectedFees[item._id] && amt !== item.amount;
+                            return (
+                              <div key={item._id}
+                                className={`flex items-center gap-3 px-4 py-3 transition-colors ${i < feeStructure.items.length - 1 ? 'border-b border-slate-100' : ''} ${selectedFees[item._id] ? 'bg-sky-50' : 'hover:bg-slate-50'}`}>
+                                <div onClick={() => setSelectedFees(p => ({ ...p, [item._id]: !p[item._id] }))}
+                                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${selectedFees[item._id] ? 'bg-sky-600 border-sky-600' : 'border-slate-300'}`}>
+                                  {selectedFees[item._id] && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5 3.5-4" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                </div>
+                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setSelectedFees(p => ({ ...p, [item._id]: !p[item._id] }))}>
+                                  <span className={`text-sm font-semibold ${selectedFees[item._id] ? 'text-slate-800' : 'text-slate-500'}`}>
+                                    {item.fee_head_name}
+                                  </span>
+                                  {isAdjusted && (
+                                    <span className="block text-[10px] text-amber-600 font-bold">
+                                      adjusted from Rs. {item.amount.toLocaleString()}
+                                    </span>
+                                  )}
+                                </div>
+                                {selectedFees[item._id] ? (
+                                  <div className="relative w-28 flex-shrink-0">
+                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">Rs.</span>
+                                    <input type="number" min="0" value={feeAmounts[item._id] ?? item.amount}
+                                      onChange={e => setFeeAmounts(p => ({ ...p, [item._id]: e.target.value === '' ? '' : Number(e.target.value) }))}
+                                      className="w-full pl-8 pr-2 py-1.5 text-sm font-bold text-sky-700 text-right border border-sky-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white tabular-nums"/>
+                                  </div>
+                                ) : (
+                                  <span className="text-sm font-bold tabular-nums text-slate-400 line-through cursor-pointer"
+                                    onClick={() => setSelectedFees(p => ({ ...p, [item._id]: !p[item._id] }))}>
+                                    Rs. {item.amount.toLocaleString()}
+                                  </span>
+                                )}
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <span className={`text-sm font-semibold ${selectedFees[item._id] ? 'text-slate-800' : 'text-slate-500'}`}>
-                                  {item.fee_head_name}
-                                </span>
-                              </div>
-                              <span className={`text-sm font-bold tabular-nums ${selectedFees[item._id] ? 'text-sky-700' : 'text-slate-400 line-through'}`}>
-                                Rs. {item.amount.toLocaleString()}
-                              </span>
-                            </label>
-                          ))}
+                            );
+                          })}
                         </div>
 
                         {/* Discount + Due day info */}
@@ -1061,7 +1089,7 @@ export default function Admissions() {
                           {feeStructure.items.filter(it => selectedFees[it._id]).map(it => (
                             <div key={it._id} className="flex justify-between text-sm text-slate-700">
                               <span>{it.fee_head_name}</span>
-                              <span className="font-semibold tabular-nums">Rs. {it.amount.toLocaleString()}</span>
+                              <span className="font-semibold tabular-nums">Rs. {amtOf(it).toLocaleString()}</span>
                             </div>
                           ))}
                           {discount > 0 && (
