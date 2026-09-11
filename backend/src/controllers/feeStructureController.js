@@ -333,6 +333,64 @@ const recordPayment = async (req, res) => {
   } catch { res.status(500).json({ message: 'Server error' }); }
 };
 
+// Collects the full outstanding balance on a batch of invoices in one go —
+// e.g. "everyone in Class 3 paid at the office today". Each invoice is still
+// settled independently (its own Transaction row), just without a per-row
+// click. Invoices already paid or rolled forward are silently skipped so a
+// stale client-side list can't double-collect or resurrect a closed invoice.
+const bulkRecordPayment = async (req, res) => {
+  try {
+    const { invoice_ids, payment_method, notes } = req.body;
+    if (!Array.isArray(invoice_ids) || !invoice_ids.length)
+      return res.status(400).json({ message: 'invoice_ids is required' });
+
+    const perDay = await finePerDay();
+    const invoices = await FeeInvoice.find({ _id: { $in: invoice_ids } })
+      .populate('student_id', 'full_name');
+
+    const paidIds = [];
+    for (const invoice of invoices) {
+      if (invoice.status === 'rolled_forward' || invoice.status === 'paid') continue;
+      refreshInvoice(invoice, perDay);
+      if (invoice.status === 'paid') continue;
+
+      const payable = invoice.total_amount + (invoice.late_fine || 0);
+      const amount = payable - invoice.paid_amount;
+      if (amount <= 0) continue;
+
+      await Transaction.create({
+        type: 'income',
+        category: 'fee_collection',
+        amount,
+        description: `Fee invoice ${invoice.month} - ${invoice.student_id?.full_name}`,
+        payment_method: payment_method || 'cash',
+        student_id: invoice.student_id._id || invoice.student_id,
+        date: new Date(),
+        recorded_by: req.user._id,
+      });
+
+      invoice.paid_amount = payable;
+      invoice.balance = 0;
+      invoice.status = 'paid';
+      if (notes) invoice.notes = notes;
+      await invoice.save();
+      paidIds.push(invoice._id);
+    }
+
+    const paidInvoices = await FeeInvoice.find({ _id: { $in: paidIds } })
+      .populate('student_id', 'full_name roll_number father_name')
+      .populate('class_id', 'name grade_level section');
+
+    res.json({
+      message: `Collected payment for ${paidIds.length} of ${invoice_ids.length} invoice(s)`,
+      count: paidIds.length,
+      invoices: paidInvoices,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Server error' });
+  }
+};
+
 const getStudentInvoices = async (req, res) => {
   try {
     const student = await Student.findOne({ user_id: req.user._id });
@@ -434,6 +492,6 @@ const createSingleInvoice = async (req, res) => {
 module.exports = {
   getFeeHeads, addFeeHead, updateFeeHead, deleteFeeHead,
   getFeeStructures, upsertFeeStructure, deleteFeeStructure,
-  generateInvoices, getInvoices, getInvoiceSiblings, recordPayment,
+  generateInvoices, getInvoices, getInvoiceSiblings, recordPayment, bulkRecordPayment,
   getStudentInvoices, getChildInvoices, createSingleInvoice,
 };

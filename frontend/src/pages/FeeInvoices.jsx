@@ -191,6 +191,10 @@ export default function FeeInvoices() {
   const [collecting, setCollecting] = useState(false);
   const [printingId, setPrintingId] = useState(null);
 
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkPayMethod, setBulkPayMethod] = useState('cash');
+  const [bulkCollecting, setBulkCollecting] = useState(false);
+
   useEffect(() => { fetchClasses(); fetchAcademicYears(); }, []);
 
   useEffect(() => {
@@ -293,6 +297,30 @@ export default function FeeInvoices() {
     );
   });
 
+  // Exactly what's on screen right now (same filters + search), minus
+  // invoices there's nothing left to collect on — this is what "Collect All"
+  // acts on, so the button never touches a row the admin can't see.
+  const collectableFiltered = filtered.filter(inv => inv.status === 'unpaid' || inv.status === 'partial');
+  const collectableTotal = collectableFiltered.reduce((s, i) => s + (i.balance || 0), 0);
+
+  const bulkCollectAndPrint = async () => {
+    setBulkCollecting(true);
+    try {
+      const { data } = await api.post('/fee-structure/invoices/bulk-pay', {
+        invoice_ids: collectableFiltered.map(i => i._id),
+        payment_method: bulkPayMethod,
+      });
+      toast.success(data.message);
+      setShowBulkModal(false);
+      if (data.invoices?.length) openVoucherPrint(data.invoices);
+      fetchInvoices();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Bulk collection failed');
+    } finally {
+      setBulkCollecting(false);
+    }
+  };
+
   // Stats
   const totalAmt    = invoices.reduce((s, i) => s + (i.total_amount || 0), 0);
   const collected   = invoices.reduce((s, i) => s + (i.paid_amount  || 0), 0);
@@ -375,6 +403,14 @@ export default function FeeInvoices() {
               {generating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Generate
             </button>
+            {collectableFiltered.length > 0 && (
+              <button onClick={() => setShowBulkModal(true)}
+                className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-amber-600 text-sm transition-colors"
+                title="Collect payment for every unpaid/partial invoice currently shown below">
+                <CreditCard className="w-4 h-4" />
+                Collect All ({collectableFiltered.length})
+              </button>
+            )}
           </div>
         </div>
         <p className="text-xs text-slate-400 mt-3 flex items-center gap-1">
@@ -721,6 +757,54 @@ export default function FeeInvoices() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── BULK COLLECT CONFIRMATION MODAL ──────────────────────────── */}
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <h2 className="text-lg font-bold text-slate-800">Collect All</h2>
+              <button onClick={() => setShowBulkModal(false)} className="p-1.5 hover:bg-slate-100 rounded-xl transition-colors">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm text-amber-800">
+                  This marks the <strong>full outstanding balance as paid</strong> for every unpaid/partial invoice currently shown in the table below (matching your current class/year/month/search filters) — <strong>{collectableFiltered.length} invoice(s)</strong>, totaling <strong>Rs. {collectableTotal.toLocaleString()}</strong>.
+                </p>
+                <p className="text-xs text-amber-600 mt-2">
+                  A voucher for every one of them will print automatically right after. This cannot be undone from here — double check the filters above before confirming.
+                </p>
+              </div>
+
+              <div>
+                <label className={labelCls}>Payment Method *</label>
+                <select value={bulkPayMethod} onChange={e => setBulkPayMethod(e.target.value)} className={inputCls}>
+                  <option value="cash">Cash</option>
+                  <option value="bank">Bank Transfer</option>
+                  <option value="cheque">Cheque</option>
+                  <option value="online">Online Payment</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowBulkModal(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 text-sm transition-colors">
+                  Cancel
+                </button>
+                <button type="button" onClick={bulkCollectAndPrint} disabled={bulkCollecting}
+                  className="flex-1 bg-amber-500 text-white px-4 py-2.5 rounded-xl font-semibold hover:bg-amber-600 text-sm disabled:opacity-60 transition-colors flex items-center justify-center gap-2">
+                  {bulkCollecting
+                    ? <><RefreshCw className="w-4 h-4 animate-spin" /> Collecting…</>
+                    : <><CreditCard className="w-4 h-4" /> Confirm & Collect {collectableFiltered.length}</>}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

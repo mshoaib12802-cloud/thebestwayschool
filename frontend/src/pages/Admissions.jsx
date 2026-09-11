@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 import {
@@ -109,6 +109,7 @@ export default function Admissions() {
   // ── Fee tab state ────────────────────────────────────────────────────────
   // undefined = never loaded, null = loaded but none found, object = found
   const [feeStructure,    setFeeStructure]    = useState(undefined);
+  const [allFeeHeads,     setAllFeeHeads]     = useState([]); // every active fee head, for opt-in heads outside the class's own structure (e.g. "Academy")
   const [feeLoading,      setFeeLoading]      = useState(false);
   const [selectedFees,    setSelectedFees]    = useState({});
   const [feeAmounts,      setFeeAmounts]      = useState({}); // per fee-head manual overrides, keyed by item._id
@@ -130,10 +131,12 @@ export default function Admissions() {
       api.get('/students'),
       api.get('/school-classes'),
       api.get('/academic-years'),
-    ]).then(([s, c, y]) => {
+      api.get('/fee-structure/fee-heads'),
+    ]).then(([s, c, y, fh]) => {
       setStudents(Array.isArray(s.data) ? s.data : (s.data?.students || []));
       setClasses(c.data || []);
       setYears(y.data || []);
+      setAllFeeHeads(fh.data || []);
     }).catch(err => {
       console.error('Admissions load error:', err);
       toast.error('Failed to load data');
@@ -217,11 +220,18 @@ export default function Admissions() {
       const structure = Array.isArray(data) ? (data[0] || null) : (data || null);
       setFeeStructure(structure); // null = none found, object = found
       if (structure?.items?.length) {
-        const pre = {};
         const amt = {};
-        structure.items.forEach(item => { pre[item._id] = true; amt[item._id] = item.amount; });
-        setSelectedFees(pre);
+        structure.items.forEach(item => { amt[item._id] = item.amount; });
         setFeeAmounts(amt);
+        // At enrollment, pre-check every head — the new student almost always
+        // owes the standard fees. When editing an already-enrolled student,
+        // leave everything unchecked so opening this tab can never silently
+        // raise an invoice the admin didn't ask for.
+        if (!editId) {
+          const pre = {};
+          structure.items.forEach(item => { pre[item._id] = true; });
+          setSelectedFees(pre);
+        }
       }
     } catch {
       setFeeStructure(null);
@@ -232,6 +242,21 @@ export default function Admissions() {
 
   // Fee-head amount, with any manual override applied (increase/decrease at enrollment)
   const amtOf = (it) => Number(feeAmounts[it?._id] ?? it?.amount) || 0;
+
+  // Everything selectable on the Fees tab: the class's own recurring
+  // structure (Tuition, Lab, Sports…) plus any other active fee head not in
+  // that structure (e.g. "Academy", "Transport") shown unchecked with no
+  // preset amount — so an optional service a student picks up or drops
+  // later can still be billed for this one student without adding it to
+  // the whole class's Fee Structure.
+  const feeItems = useMemo(() => {
+    const structureItems = feeStructure?.items || [];
+    const coveredIds = new Set(structureItems.map(it => String(it.fee_head_id)));
+    const extras = allFeeHeads
+      .filter(h => !coveredIds.has(String(h._id)))
+      .map(h => ({ _id: h._id, fee_head_id: h._id, fee_head_name: h.name, amount: 0, isExtra: true }));
+    return [...structureItems, ...extras];
+  }, [feeStructure, allFeeHeads]);
 
   const handlePhoto = (e) => {
     const file = e.target.files[0];
@@ -305,6 +330,49 @@ export default function Admissions() {
     setShowForm(true);
   };
 
+  // Shared by both the "add student" and "edit student" save paths — creates
+  // a single fee invoice from whatever heads are checked on the Fees tab.
+  // Returns { selItems, invoiceData } so each caller can build its own
+  // success message / print slip; invoiceData is null when nothing was
+  // selected (or creation failed, which is reported here via toast).
+  const createFeeInvoiceIfSelected = async (studentId) => {
+    const selItems = feeItems.filter(it => selectedFees[it._id])
+      .map(it => ({ ...it, amount: amtOf(it) }));
+    if (!selItems.length || !form.academic_year_id) return { selItems, invoiceData: null };
+
+    try {
+      const now = new Date();
+      const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const discount = Number(feeDiscount) || 0;
+      const rawTotal = selItems.reduce((s, it) => s + it.amount, 0);
+      const totalAmount = Math.max(0, rawTotal - discount);
+      const paidNow = Math.min(Number(feePaid) || 0, totalAmount);
+
+      const invRes = await api.post('/fee-structure/invoices/create-single', {
+        student_id:       studentId,
+        class_id:         form.school_class_id,
+        academic_year_id: form.academic_year_id,
+        month,
+        items: selItems.map(it => ({
+          fee_head_id:   it.fee_head_id,
+          fee_head_name: it.fee_head_name,
+          amount:        it.amount,
+        })),
+        discount_amount: discount,
+        total_amount:    totalAmount,
+        paid_amount:     paidNow,
+        balance:         totalAmount - paidNow,
+        status:          paidNow >= totalAmount ? 'paid' : paidNow > 0 ? 'partial' : 'unpaid',
+        notes:           feeNotes,
+        payment_method:  feePayMethod,
+      });
+      return { selItems, invoiceData: invRes.data };
+    } catch (err) {
+      toast.warn('Invoice generation failed: ' + (err.response?.data?.message || err.message));
+      return { selItems, invoiceData: null };
+    }
+  };
+
   const handleSubmit = async () => {
     if (!form.full_name.trim()) { toast.error('Full name is required'); setFormTab('personal'); return; }
     if (!form.father_name.trim()) { toast.error('Father name is required'); setFormTab('family'); return; }
@@ -321,7 +389,9 @@ export default function Admissions() {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         setStudents(prev => prev.map(s => s._id === editId ? data : s));
-        toast.success('Student updated');
+
+        const { invoiceData } = await createFeeInvoiceIfSelected(editId);
+        toast.success(invoiceData ? 'Student updated and fee invoice created' : 'Student updated');
         setShowForm(false);
       } else {
         const { data } = await api.post('/students/add', fd, {
@@ -329,43 +399,7 @@ export default function Admissions() {
         });
         setStudents(prev => [data.student, ...prev]);
 
-        // ── Generate first-month fee invoice if fee items selected ──────────
-        // amtOf() applies any manual per-head amount override made on the Fees tab.
-        const selItems = (feeStructure?.items?.filter(it => selectedFees[it._id]) || [])
-          .map(it => ({ ...it, amount: amtOf(it) }));
-        let invoiceData = null;
-        if (selItems.length && form.academic_year_id) {
-          try {
-            const now = new Date();
-            const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-            const discount = Number(feeDiscount) || 0;
-            const rawTotal = selItems.reduce((s, it) => s + it.amount, 0);
-            const totalAmount = Math.max(0, rawTotal - discount);
-            const paidNow = Math.min(Number(feePaid) || 0, totalAmount);
-
-            const invRes = await api.post('/fee-structure/invoices/create-single', {
-              student_id:       data.student._id,
-              class_id:         form.school_class_id,
-              academic_year_id: form.academic_year_id,
-              month,
-              items: selItems.map(it => ({
-                fee_head_id:   it.fee_head_id,
-                fee_head_name: it.fee_head_name,
-                amount:        it.amount,
-              })),
-              discount_amount: discount,
-              total_amount:    totalAmount,
-              paid_amount:     paidNow,
-              balance:         totalAmount - paidNow,
-              status:          paidNow >= totalAmount ? 'paid' : paidNow > 0 ? 'partial' : 'unpaid',
-              notes:           feeNotes,
-              payment_method:  feePayMethod,
-            });
-            invoiceData = invRes.data;
-          } catch (err) {
-            toast.warn('Student enrolled but invoice generation failed: ' + (err.response?.data?.message || err.message));
-          }
-        }
+        const { selItems, invoiceData } = await createFeeInvoiceIfSelected(data.student._id);
 
         // Build print-slip data
         const cls  = classes.find(c => c._id === form.school_class_id);
@@ -934,10 +968,14 @@ export default function Admissions() {
                   {/* Header */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-bold text-slate-700">First-Month Fee Invoice</p>
+                      <p className="text-sm font-bold text-slate-700">
+                        {editId ? 'Add a Fee Invoice' : 'First-Month Fee Invoice'}
+                      </p>
                       <p className="text-xs text-slate-400 mt-0.5">
                         {form.school_class_id && form.academic_year_id
-                          ? 'Select fees to apply. An invoice will be created on enrollment.'
+                          ? (editId
+                              ? 'Nothing is pre-selected. Check the fee heads to bill and Save will create the invoice — leave all unchecked to just edit the profile.'
+                              : 'Select fees to apply. An invoice will be created on enrollment.')
                           : 'Please select a Class and Academic Year in the Academic tab first.'}
                       </p>
                     </div>
@@ -969,21 +1007,27 @@ export default function Admissions() {
                     </div>
                   )}
 
-                  {/* No fee structure defined (null = loaded but nothing found) */}
-                  {!feeLoading && form.school_class_id && form.academic_year_id && feeStructure === null && (
+                  {/* Nothing to bill at all — no class structure and no fee heads defined anywhere */}
+                  {!feeLoading && form.school_class_id && form.academic_year_id && feeStructure !== undefined && feeItems.length === 0 && (
                     <div className="text-center py-10 bg-amber-50 rounded-2xl border border-dashed border-amber-200">
                       <Tag size={32} className="text-amber-400 mx-auto mb-3"/>
-                      <p className="text-amber-700 text-sm font-semibold">No fee structure set for this class</p>
-                      <p className="text-amber-500 text-xs mt-1">Set it up in <strong>Fee Structure</strong> page first.</p>
+                      <p className="text-amber-700 text-sm font-semibold">No fee heads available</p>
+                      <p className="text-amber-500 text-xs mt-1">Set up a Fee Structure or add Fee Heads first.</p>
                     </div>
+                  )}
+                  {/* Class has no recurring structure, but other fee heads (e.g. Academy) are still selectable below */}
+                  {!feeLoading && form.school_class_id && form.academic_year_id && feeStructure === null && feeItems.length > 0 && (
+                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                      No recurring Fee Structure is set for this class — only the optional fee heads below are available.
+                    </p>
                   )}
 
                   {/* Fee items */}
-                  {feeStructure?.items?.length > 0 && (() => {
-                    const rawTotal  = feeStructure.items.reduce((s, it) => s + amtOf(it), 0);
+                  {feeItems.length > 0 && (() => {
+                    const rawTotal  = feeItems.reduce((s, it) => s + amtOf(it), 0);
                     const discount  = Number(feeDiscount) || 0;
                     const netTotal  = Math.max(0, rawTotal - discount);
-                    const selTotal  = feeStructure.items
+                    const selTotal  = feeItems
                       .filter(it => selectedFees[it._id])
                       .reduce((s, it) => s + amtOf(it), 0);
                     const selNet    = Math.max(0, selTotal - discount);
@@ -997,20 +1041,20 @@ export default function Admissions() {
                           <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fee Heads</span>
                             <button onClick={() => {
-                              const allSel = feeStructure.items.every(it => selectedFees[it._id]);
+                              const allSel = feeItems.every(it => selectedFees[it._id]);
                               const next = {};
-                              feeStructure.items.forEach(it => { next[it._id] = !allSel; });
+                              feeItems.forEach(it => { next[it._id] = !allSel; });
                               setSelectedFees(next);
                             }} className="text-[10px] font-bold text-sky-600 hover:text-sky-800">
-                              {feeStructure.items.every(it => selectedFees[it._id]) ? 'Deselect All' : 'Select All'}
+                              {feeItems.every(it => selectedFees[it._id]) ? 'Deselect All' : 'Select All'}
                             </button>
                           </div>
-                          {feeStructure.items.map((item, i) => {
+                          {feeItems.map((item, i) => {
                             const amt = amtOf(item);
                             const isAdjusted = selectedFees[item._id] && amt !== item.amount;
                             return (
                               <div key={item._id}
-                                className={`flex items-center gap-3 px-4 py-3 transition-colors ${i < feeStructure.items.length - 1 ? 'border-b border-slate-100' : ''} ${selectedFees[item._id] ? 'bg-sky-50' : 'hover:bg-slate-50'}`}>
+                                className={`flex items-center gap-3 px-4 py-3 transition-colors ${i < feeItems.length - 1 ? 'border-b border-slate-100' : ''} ${selectedFees[item._id] ? 'bg-sky-50' : 'hover:bg-slate-50'}`}>
                                 <div onClick={() => setSelectedFees(p => ({ ...p, [item._id]: !p[item._id] }))}
                                   className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors ${selectedFees[item._id] ? 'bg-sky-600 border-sky-600' : 'border-slate-300'}`}>
                                   {selectedFees[item._id] && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5 3.5-4" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
@@ -1019,7 +1063,11 @@ export default function Admissions() {
                                   <span className={`text-sm font-semibold ${selectedFees[item._id] ? 'text-slate-800' : 'text-slate-500'}`}>
                                     {item.fee_head_name}
                                   </span>
-                                  {isAdjusted && (
+                                  {item.isExtra ? (
+                                    <span className="block text-[10px] text-sky-500 font-bold">
+                                      Optional — not part of this class's default fees
+                                    </span>
+                                  ) : isAdjusted && (
                                     <span className="block text-[10px] text-amber-600 font-bold">
                                       adjusted from Rs. {item.amount.toLocaleString()}
                                     </span>
@@ -1086,7 +1134,7 @@ export default function Admissions() {
                         {/* Summary box */}
                         <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 space-y-2">
                           <p className="text-xs font-bold text-sky-700 uppercase tracking-widest mb-3">Invoice Summary</p>
-                          {feeStructure.items.filter(it => selectedFees[it._id]).map(it => (
+                          {feeItems.filter(it => selectedFees[it._id]).map(it => (
                             <div key={it._id} className="flex justify-between text-sm text-slate-700">
                               <span>{it.fee_head_name}</span>
                               <span className="font-semibold tabular-nums">Rs. {amtOf(it).toLocaleString()}</span>
